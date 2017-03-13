@@ -8,75 +8,67 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
-public class DownloadTask extends Thread{
+import static com.will.downloaddemo.DownloadUtil.MSG_FINISHED;
+import static com.will.downloaddemo.DownloadUtil.MSG_PROGRESS;
+import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
+import static com.will.downloaddemo.DownloadUtil.THREAD_NUM;
+import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
-    private static final int DOWNLOAD_FINISHED = 1;
-    private static final int DOWNLOAD_PROGRESS = 2;
-    private static final int DOWNLOAD_CANCELED = 3;
-    private static final int DOWNLOAD_STOPED = 4;
-    private static final int DOWNLOAD_FAILED = 5;
+public class DownloadTask implements Runnable {
 
-    private final static int TIME_OUT = 5000;
-    private final static int THREAD_NUM = 5;
+    private DownloadRecord downloadRecord;
     private Handler mHandler;
-    private Executor mExecutor;
+    private ExecutorService mExecutor;
 
-    private long currentLocation;
-    private long fileLength;
-    private String downloadUrl;
-    private String filePath;
-    private int completedBlock;
-    private boolean isCanceled;
-    private boolean isPaused;
-    private boolean isCompleted;
-    private boolean isFailed;
     private DownloadListener listener;
 
-    public DownloadTask(String downloadUrl, String filePath, final DownloadListener listener){
-        this.downloadUrl = downloadUrl;
-        this.filePath = filePath;
+    public DownloadTask(ExecutorService executor, final DownloadRecord record, final DownloadListener listener) {
+        downloadRecord = record;
         this.listener = listener;
         mHandler = new Handler() {
             @Override
             public void handleMessage(Message msg) {
-                switch (msg.what){
-                    case DOWNLOAD_FINISHED:
+                switch (msg.what) {
+                    case MSG_FINISHED:
                         listener.onSuccess();
                         break;
-                    case DOWNLOAD_PROGRESS:
-                        listener.onProgress(Math.round(currentLocation / (fileLength*1.0f) * 100));
+                    case MSG_PROGRESS:
+                        listener.onProgress(Math.round(downloadRecord.getCurrentLength() /
+                                (downloadRecord.getFileLength() * 1.0f) * 100));
                         break;
                 }
             }
         };
 
-        mExecutor = Executors.newCachedThreadPool();
+        mExecutor = executor;
     }
 
     @Override
     public void run() {
         try {
-            URL url = new URL(downloadUrl);
+            URL url = new URL(downloadRecord.getDownloadUrl());
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Charset", "UTF-8");
             conn.setConnectTimeout(TIME_OUT);
-            conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
-            conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
+            //conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
+            //conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
             conn.connect();
-            fileLength = conn.getContentLength();
-            RandomAccessFile file = new RandomAccessFile(filePath, "rwd");
-            file.setLength(fileLength);
-            long blockSize = fileLength / THREAD_NUM;
+            downloadRecord.setFileLength(conn.getContentLength());
+            RandomAccessFile file = new RandomAccessFile(downloadRecord.getSaveDir(), "rwd");
+            file.setLength(downloadRecord.getFileLength());
+            long blockSize = downloadRecord.getFileLength() / THREAD_NUM;
+            downloadRecord.setDownloadState(STATE_DOWNLOADING);
             for (int i = 0; i < THREAD_NUM; i++) {
                 long startL = i * blockSize;
                 long endL = (i + 1) * blockSize;
-                if(i == THREAD_NUM - 1)
-                    endL = fileLength;
-                mExecutor.execute(new DownloadBlock(this, startL, endL));
+                if (i == THREAD_NUM - 1)
+                    endL = downloadRecord.getFileLength();
+                SubTask subTask = new SubTask(downloadRecord, startL, endL);
+                downloadRecord.getSubTaskList().add(subTask);
+                mExecutor.execute(subTask);
             }
 
         } catch (IOException e) {
@@ -84,59 +76,37 @@ public class DownloadTask extends Thread{
         }
     }
 
-    public long getCurrentLocation() {
-        return currentLocation;
-    }
-
-    public long getFileLength() {
-        return fileLength;
-    }
-
-    public String getDownloadUrl() {
-        return downloadUrl;
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public boolean isCanceled() {
-        return isCanceled;
-    }
-
-    public boolean isPaused() {
-        return isPaused;
-    }
-
-    public boolean isCompleted() {
-        return isCompleted;
-    }
-
-    public boolean isFailed() {
-        return isFailed;
-    }
-
-    public void blockComplete(){
-        completedBlock++;
-        if(completedBlock == THREAD_NUM){
-            mHandler.sendEmptyMessage(DOWNLOAD_FINISHED);
+    public synchronized void subtaskComplete() {
+        if (downloadRecord.completeSubTask()) {
+            mHandler.sendEmptyMessage(MSG_FINISHED);
         }
     }
 
-    public void increaseLength(int length){
-        currentLocation += length;
-        mHandler.sendEmptyMessage(DOWNLOAD_PROGRESS);
+    public void increaseLength(int length) {
+        downloadRecord.increaseLength(length);
+        mHandler.sendEmptyMessage(MSG_PROGRESS);
+    }
+
+    public void resumeDownload() {
+        downloadRecord.setDownloadState(STATE_DOWNLOADING);
+        for (int i = 0; i < THREAD_NUM; i++) {
+            DownloadTask.SubTask subTask = downloadRecord.getSubTaskList().get(i);
+            mExecutor.execute(subTask);
+        }
     }
 
 
-    class DownloadBlock implements Runnable{
-        DownloadTask task;
+    /**
+     * 每个下载任务分成多个子任务下载
+     */
+    class SubTask implements Runnable {
+        DownloadRecord downloadRecord;
         long startLocation;
         long endLocation;
 
-        public DownloadBlock(DownloadTask task, long startLocation, long endLocation) {
+        public SubTask(DownloadRecord task, long startLocation, long endLocation) {
             super();
-            this.task = task;
+            this.downloadRecord = task;
             this.startLocation = startLocation;
             this.endLocation = endLocation;
         }
@@ -144,7 +114,7 @@ public class DownloadTask extends Thread{
         @Override
         public void run() {
             try {
-                URL url = new URL(task.getDownloadUrl());
+                URL url = new URL(downloadRecord.getDownloadUrl());
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 //在头里面请求下载开始位置和结束位置
                 conn.setRequestProperty("Range", "bytes=" + startLocation + "-" + endLocation);
@@ -156,26 +126,27 @@ public class DownloadTask extends Thread{
                 conn.setReadTimeout(2000);  //设置读取流的等待时间,必须设置该参数
                 InputStream is = conn.getInputStream();
                 //创建可设置位置的文件
-                RandomAccessFile file = new RandomAccessFile(task.getFilePath(), "rwd");
+                RandomAccessFile file = new RandomAccessFile(downloadRecord.getFilePath(), "rwd");
                 //设置每条线程写入文件的位置
                 file.seek(startLocation);
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[4096];
                 int len;
-                while ((len = is.read(buffer)) != -1) {
-                    //把下载数据数据写入文件
+                while (downloadRecord.getDownloadState() == STATE_DOWNLOADING
+                        && (len = is.read(buffer)) != -1) {
                     file.write(buffer, 0, len);
-                    synchronized (task) {
-                        task.increaseLength(len);
-                    }
+                    startLocation += len;
+                    downloadRecord.increaseLength(len);
                 }
 
-                synchronized (task){
-                    task.blockComplete();
+                if (downloadRecord.getDownloadState() == STATE_DOWNLOADING) {
+                    if (downloadRecord.completeSubTask()) {
+                        mHandler.sendEmptyMessage(MSG_FINISHED);
+                    }
                 }
 
                 file.close();
                 is.close();
-            } catch (IOException ioExeception) {
+            } catch (IOException exception) {
 
             }
         }

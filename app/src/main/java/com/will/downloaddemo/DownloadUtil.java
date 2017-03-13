@@ -20,8 +20,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import static com.will.downloaddemo.DownloadUtil.DownloadRunnable.TAG;
 
@@ -34,17 +37,27 @@ public class DownloadUtil {
 
     private static DownloadUtil instance;
 
-    private final static int TIME_OUT = 5000;
-    private final static int THREAD_NUM = 5;
     private Handler mHandler;
-    private Executor mExecutor;
-    private Map<String, DownloadTask> downloadTasks;
+    private ExecutorService mExecutor;
+    private Map<String, DownloadTask> mDownloadTasks;
+    private BlockingQueue<DownloadTask> mRequestQueue;
+    private RequestDispatcher requestDispatcher;
 
-    private static final int DOWNLOAD_FINISHED = 1;
-    private static final int DOWNLOAD_PROGRESS = 2;
-    private static final int DOWNLOAD_CANCELED = 3;
-    private static final int DOWNLOAD_STOPED = 4;
-    private static final int DOWNLOAD_FAILED = 5;
+    public static final int MSG_FINISHED = 1;
+    public static final int MSG_PROGRESS = 2;
+    public static final int MSG_CANCELED = 3;
+    public static final int MSG_PAUSED = 4;
+    public static final int MSG_FAILED = 5;
+
+    public static final int STATE_INITIAL = 0;
+    public static final int STATE_DOWNLOADING = 1;
+    public static final int STATE_PAUSED = 2;
+    public static final int STATE_FINISHED = 3;
+    public static final int STATE_CANCELED = 4;
+    public static final int STATE_FAILED = 5;
+
+    public final static int TIME_OUT = 5000;
+    public final static int THREAD_NUM = 5;
 
     private DownloadUtil(){
         mHandler = new Handler() {
@@ -55,9 +68,10 @@ public class DownloadUtil {
                 }
             }
         };
-
         mExecutor = Executors.newCachedThreadPool();
-        downloadTasks = new HashMap<>();
+        mDownloadTasks = new HashMap<>();
+        mRequestQueue = new PriorityBlockingQueue<>();
+        requestDispatcher = new RequestDispatcher(mExecutor, mRequestQueue);
     }
 
     public static DownloadUtil getInstance(){
@@ -70,12 +84,10 @@ public class DownloadUtil {
         return instance;
     }
 
-    public String startDownload(String downloadUrl, String filePath, DownloadListener listener){
-        DownloadTask task = new DownloadTask(downloadUrl, filePath, listener);
-        String taskId = getMD5(downloadUrl + filePath);
-        downloadTasks.put(taskId, task);
-        task.start();
-        return taskId;
+    public String enqueue(DownloadRequest request, DownloadListener listener){
+        DownloadRecord record = new DownloadRecord(request, listener);
+
+        return null;
     }
 
     private static String getMD5(String string) {
@@ -99,150 +111,6 @@ public class DownloadUtil {
         }
 
         return hex.toString();
-    }
-
-
-
-public class DownloadTask extends Thread{
-    private long currentLocation;
-    private long fileLength;
-    private String downloadUrl;
-    private String filePath;
-    private int completedBlock;
-    private boolean isCanceled;
-    private boolean isPaused;
-    private boolean isCompleted;
-    private boolean isFailed;
-    private DownloadListener listener;
-
-    public DownloadTask(String downloadUrl, String filePath, DownloadListener listener){
-        this.downloadUrl = downloadUrl;
-        this.filePath = filePath;
-        this.listener = listener;
-    }
-
-    @Override
-    public void run() {
-        try {
-            URL url = new URL(downloadUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Charset", "UTF-8");
-            conn.setConnectTimeout(TIME_OUT);
-            conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
-            conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
-            conn.connect();
-            fileLength = conn.getContentLength();
-            RandomAccessFile file = new RandomAccessFile(filePath, "rwd");
-            file.setLength(fileLength);
-            long blockSize = fileLength / THREAD_NUM;
-            for (int i = 0; i < THREAD_NUM; i++) {
-                long startL = i * blockSize;
-                long endL = (i + 1) * blockSize;
-                if(i == THREAD_NUM - 1)
-                    endL = fileLength;
-                mExecutor.execute(new DownloadBlock(this, startL, endL));
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public long getCurrentLocation() {
-        return currentLocation;
-    }
-
-    public long getFileLength() {
-        return fileLength;
-    }
-
-    public String getDownloadUrl() {
-        return downloadUrl;
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public boolean isCanceled() {
-        return isCanceled;
-    }
-
-    public boolean isPaused() {
-        return isPaused;
-    }
-
-    public boolean isCompleted() {
-        return isCompleted;
-    }
-
-    public boolean isFailed() {
-        return isFailed;
-    }
-
-    public void blockComplete(){
-        completedBlock++;
-        if(completedBlock == THREAD_NUM){
-
-        }
-    }
-
-    public void increaseLength(int length){
-        currentLocation += length;
-    }
-}
-
-    class DownloadBlock implements Runnable{
-        DownloadTask task;
-        long startLocation;
-        long endLocation;
-
-        public DownloadBlock(DownloadTask task, long startLocation, long endLocation) {
-            super();
-            this.task = task;
-            this.startLocation = startLocation;
-            this.endLocation = endLocation;
-        }
-
-        @Override
-        public void run() {
-            try {
-                URL url = new URL(task.getDownloadUrl());
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                //在头里面请求下载开始位置和结束位置
-                conn.setRequestProperty("Range", "bytes=" + startLocation + "-" + endLocation);
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Charset", "UTF-8");
-                conn.setConnectTimeout(TIME_OUT);
-                conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
-                conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
-                conn.setReadTimeout(2000);  //设置读取流的等待时间,必须设置该参数
-                InputStream is = conn.getInputStream();
-                //创建可设置位置的文件
-                RandomAccessFile file = new RandomAccessFile(task.getFilePath(), "rwd");
-                //设置每条线程写入文件的位置
-                file.seek(startLocation);
-                byte[] buffer = new byte[1024];
-                int len;
-                while ((len = is.read(buffer)) != -1) {
-                    //把下载数据数据写入文件
-                    file.write(buffer, 0, len);
-                    synchronized (task) {
-                        task.increaseLength(len);
-                    }
-                }
-
-                synchronized (task){
-                    task.blockComplete();
-                }
-
-                file.close();
-                is.close();
-            } catch (IOException ioExeception) {
-
-            }
-        }
     }
 
 

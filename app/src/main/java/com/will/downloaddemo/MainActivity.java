@@ -27,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
 
     String mDownloadUrl;
     String mFilePath;
+    private DownloadTask downloadTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.button:
-                new DownloadTask(mDownloadUrl, mFilePath, new DownloadCallback(){
+                downloadTask = new DownloadTask(mDownloadUrl, mFilePath, new DownloadCallback(){
                     @Override
                     public void onProgress(int progress) {
                         progressBar.setProgress(progress);
@@ -54,9 +55,15 @@ public class MainActivity extends AppCompatActivity {
                     public void onSuccess() {
                         txtProgress.setText("完成");
                     }
-                }).start();
+                });
+                downloadTask.start();
                 break;
             case R.id.button2:
+                if(downloadTask.isPaused()){
+                    downloadTask.resumeDownload();
+                }else {
+                    downloadTask.pauseDownload();
+                }
                 break;
             case R.id.button3:
                 break;
