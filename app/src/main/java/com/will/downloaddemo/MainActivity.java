@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
 
     String mDownloadUrl;
     String mFilePath;
-    private DownloadTask downloadTask;
+    private DownloadRequest downloadRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,25 +44,30 @@ public class MainActivity extends AppCompatActivity {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.button:
-                downloadTask = new DownloadTask(mDownloadUrl, mFilePath, new DownloadCallback(){
-                    @Override
-                    public void onProgress(int progress) {
-                        progressBar.setProgress(progress);
-                        txtProgress.setText(progress + "%");
-                    }
+                downloadRequest = DownloadRequest.newBuilder()
+                        .downloadUrl(mDownloadUrl)
+                        .saveName("didi.apk")
+                        .downloadListener(new DownloadCallback(){
+                            @Override
+                            public void onProgress(int progress) {
+                                progressBar.setProgress(progress);
+                                txtProgress.setText(progress + "%");
+                            }
 
-                    @Override
-                    public void onSuccess() {
-                        txtProgress.setText("完成");
-                    }
-                });
-                downloadTask.start();
+                            @Override
+                            public void onSuccess() {
+                                txtProgress.setText("完成");
+                            }
+                        })
+                        .build();
+
+                DownloadUtil.getInstance().enqueue(downloadRequest);
                 break;
             case R.id.button2:
-                if(downloadTask.isPaused()){
-                    downloadTask.resumeDownload();
+                if(downloadRequest.isPaused()){
+                    downloadRequest.resumeDownload();
                 }else {
-                    downloadTask.pauseDownload();
+                    downloadRequest.pauseDownload();
                 }
                 break;
             case R.id.button3:

@@ -2,7 +2,6 @@ package com.will.downloaddemo;
 
 import android.content.Context;
 import android.os.Handler;
-import android.os.Message;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.util.SparseArray;
@@ -24,7 +23,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.will.downloaddemo.DownloadUtil.DownloadRunnable.TAG;
 
@@ -38,9 +37,9 @@ public class DownloadUtil {
     private static DownloadUtil instance;
 
     private Handler mHandler;
-    private ExecutorService mExecutor;
+    public final static ExecutorService TASK_EXECUTOR = Executors.newCachedThreadPool();;
     private Map<String, DownloadTask> mDownloadTasks;
-    private BlockingQueue<DownloadTask> mRequestQueue;
+    private BlockingQueue<DownloadRequest> mRequestQueue;
     private RequestDispatcher requestDispatcher;
 
     public static final int MSG_FINISHED = 1;
@@ -60,18 +59,10 @@ public class DownloadUtil {
     public final static int THREAD_NUM = 5;
 
     private DownloadUtil(){
-        mHandler = new Handler() {
-            @Override
-            public void handleMessage(Message msg) {
-                switch (msg.what){
-
-                }
-            }
-        };
-        mExecutor = Executors.newCachedThreadPool();
         mDownloadTasks = new HashMap<>();
-        mRequestQueue = new PriorityBlockingQueue<>();
-        requestDispatcher = new RequestDispatcher(mExecutor, mRequestQueue);
+        mRequestQueue = new LinkedBlockingQueue<>();
+        requestDispatcher = new RequestDispatcher(mRequestQueue);
+        requestDispatcher.start();
     }
 
     public static DownloadUtil getInstance(){
@@ -84,9 +75,8 @@ public class DownloadUtil {
         return instance;
     }
 
-    public String enqueue(DownloadRequest request, DownloadListener listener){
-        DownloadRecord record = new DownloadRecord(request, listener);
-
+    public String enqueue(DownloadRequest request){
+        mRequestQueue.offer(request);
         return null;
     }
 

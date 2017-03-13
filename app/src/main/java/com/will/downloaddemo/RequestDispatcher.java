@@ -1,18 +1,17 @@
 package com.will.downloaddemo;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
+
+import static com.will.downloaddemo.DownloadUtil.TASK_EXECUTOR;
 
 /**
  * Created by Will on 2017/3/13.
  */
 public class RequestDispatcher extends Thread{
-    private ExecutorService mExecutor;
-    private BlockingQueue<DownloadTask> mRequestQueue;
+    private BlockingQueue<DownloadRequest> mRequestQueue;
     private volatile boolean mQuit = false;
 
-    public RequestDispatcher(ExecutorService executor, BlockingQueue<DownloadTask> requestQueue) {
-        mExecutor = executor;
+    public RequestDispatcher(BlockingQueue<DownloadRequest> requestQueue) {
         mRequestQueue = requestQueue;
     }
 
@@ -25,8 +24,8 @@ public class RequestDispatcher extends Thread{
     public void run() {
         while (true){
             try {
-                DownloadTask downloadTask = mRequestQueue.take();
-
+                DownloadRequest downloadRequest = mRequestQueue.take();
+                TASK_EXECUTOR.execute(new DownloadTask(TASK_EXECUTOR, downloadRequest));
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 if (mQuit) {

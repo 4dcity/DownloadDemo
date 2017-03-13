@@ -1,6 +1,7 @@
 package com.will.downloaddemo;
 
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 
 import java.io.IOException;
@@ -18,37 +19,35 @@ import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
 public class DownloadTask implements Runnable {
 
-    private DownloadRecord downloadRecord;
+    private DownloadRequest downloadRequest;
     private Handler mHandler;
     private ExecutorService mExecutor;
 
-    private DownloadListener listener;
-
-    public DownloadTask(ExecutorService executor, final DownloadRecord record, final DownloadListener listener) {
-        downloadRecord = record;
-        this.listener = listener;
-        mHandler = new Handler() {
+    public DownloadTask(ExecutorService executor, final DownloadRequest request) {
+        downloadRequest = request;
+        mHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 switch (msg.what) {
                     case MSG_FINISHED:
-                        listener.onSuccess();
+                        request.getListener().onSuccess();
                         break;
                     case MSG_PROGRESS:
-                        listener.onProgress(Math.round(downloadRecord.getCurrentLength() /
-                                (downloadRecord.getFileLength() * 1.0f) * 100));
+                        request.getListener().onProgress(Math.round(downloadRequest.getCurrentLength() /
+                                (downloadRequest.getFileLength() * 1.0f) * 100));
                         break;
                 }
             }
         };
 
         mExecutor = executor;
+        request.setDownloadTask(this);
     }
 
     @Override
     public void run() {
         try {
-            URL url = new URL(downloadRecord.getDownloadUrl());
+            URL url = new URL(downloadRequest.getDownloadUrl());
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Charset", "UTF-8");
@@ -56,18 +55,18 @@ public class DownloadTask implements Runnable {
             //conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
             //conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
             conn.connect();
-            downloadRecord.setFileLength(conn.getContentLength());
-            RandomAccessFile file = new RandomAccessFile(downloadRecord.getSaveDir(), "rwd");
-            file.setLength(downloadRecord.getFileLength());
-            long blockSize = downloadRecord.getFileLength() / THREAD_NUM;
-            downloadRecord.setDownloadState(STATE_DOWNLOADING);
+            downloadRequest.setFileLength(conn.getContentLength());
+            RandomAccessFile file = new RandomAccessFile(downloadRequest.getFilePath(), "rwd");
+            file.setLength(downloadRequest.getFileLength());
+            long blockSize = downloadRequest.getFileLength() / THREAD_NUM;
+            downloadRequest.setDownloadState(STATE_DOWNLOADING);
             for (int i = 0; i < THREAD_NUM; i++) {
                 long startL = i * blockSize;
                 long endL = (i + 1) * blockSize;
                 if (i == THREAD_NUM - 1)
-                    endL = downloadRecord.getFileLength();
-                SubTask subTask = new SubTask(downloadRecord, startL, endL);
-                downloadRecord.getSubTaskList().add(subTask);
+                    endL = downloadRequest.getFileLength();
+                SubTask subTask = new SubTask(downloadRequest, startL, endL);
+                downloadRequest.getSubTaskList().add(subTask);
                 mExecutor.execute(subTask);
             }
 
@@ -76,37 +75,16 @@ public class DownloadTask implements Runnable {
         }
     }
 
-    public synchronized void subtaskComplete() {
-        if (downloadRecord.completeSubTask()) {
-            mHandler.sendEmptyMessage(MSG_FINISHED);
-        }
-    }
-
-    public void increaseLength(int length) {
-        downloadRecord.increaseLength(length);
-        mHandler.sendEmptyMessage(MSG_PROGRESS);
-    }
-
-    public void resumeDownload() {
-        downloadRecord.setDownloadState(STATE_DOWNLOADING);
-        for (int i = 0; i < THREAD_NUM; i++) {
-            DownloadTask.SubTask subTask = downloadRecord.getSubTaskList().get(i);
-            mExecutor.execute(subTask);
-        }
-    }
-
-
     /**
      * 每个下载任务分成多个子任务下载
      */
     class SubTask implements Runnable {
-        DownloadRecord downloadRecord;
+        DownloadRequest downloadRequest;
         long startLocation;
         long endLocation;
 
-        public SubTask(DownloadRecord task, long startLocation, long endLocation) {
-            super();
-            this.downloadRecord = task;
+        public SubTask(DownloadRequest request, long startLocation, long endLocation) {
+            this.downloadRequest = request;
             this.startLocation = startLocation;
             this.endLocation = endLocation;
         }
@@ -114,7 +92,7 @@ public class DownloadTask implements Runnable {
         @Override
         public void run() {
             try {
-                URL url = new URL(downloadRecord.getDownloadUrl());
+                URL url = new URL(downloadRequest.getDownloadUrl());
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 //在头里面请求下载开始位置和结束位置
                 conn.setRequestProperty("Range", "bytes=" + startLocation + "-" + endLocation);
@@ -126,20 +104,21 @@ public class DownloadTask implements Runnable {
                 conn.setReadTimeout(2000);  //设置读取流的等待时间,必须设置该参数
                 InputStream is = conn.getInputStream();
                 //创建可设置位置的文件
-                RandomAccessFile file = new RandomAccessFile(downloadRecord.getFilePath(), "rwd");
+                RandomAccessFile file = new RandomAccessFile(downloadRequest.getFilePath(), "rwd");
                 //设置每条线程写入文件的位置
                 file.seek(startLocation);
                 byte[] buffer = new byte[4096];
                 int len;
-                while (downloadRecord.getDownloadState() == STATE_DOWNLOADING
+                while (downloadRequest.getDownloadState() == STATE_DOWNLOADING
                         && (len = is.read(buffer)) != -1) {
                     file.write(buffer, 0, len);
                     startLocation += len;
-                    downloadRecord.increaseLength(len);
+                    downloadRequest.increaseLength(len);
+                    mHandler.sendEmptyMessage(MSG_PROGRESS);
                 }
 
-                if (downloadRecord.getDownloadState() == STATE_DOWNLOADING) {
-                    if (downloadRecord.completeSubTask()) {
+                if (downloadRequest.getDownloadState() == STATE_DOWNLOADING) {
+                    if (downloadRequest.completeSubTask()) {
                         mHandler.sendEmptyMessage(MSG_FINISHED);
                     }
                 }
