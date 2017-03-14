@@ -1,18 +1,22 @@
 package com.will.downloaddemo;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
 import static com.will.downloaddemo.DownloadUtil.TASK_EXECUTOR;
+import static com.will.downloaddemo.DownloadUtil.sPermit;
+import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
 /**
  * Created by Will on 2017/3/13.
  */
 public class RequestDispatcher extends Thread{
-    private BlockingQueue<DownloadRequest> mRequestQueue;
+    private BlockingQueue<DownloadRecord> mRecordQueue;
     private volatile boolean mQuit = false;
 
-    public RequestDispatcher(BlockingQueue<DownloadRequest> requestQueue) {
-        mRequestQueue = requestQueue;
+    public RequestDispatcher() {
+        mRecordQueue = new LinkedBlockingQueue<>();
     }
 
     public void quit() {
@@ -24,8 +28,13 @@ public class RequestDispatcher extends Thread{
     public void run() {
         while (true){
             try {
-                DownloadRequest downloadRequest = mRequestQueue.take();
-                TASK_EXECUTOR.execute(new DownloadTask(TASK_EXECUTOR, downloadRequest));
+                DownloadRecord downloadRecord = mRecordQueue.take();
+                sPermit.acquire();
+                if(downloadRecord.getDownloadState() == STATE_INITIAL) {
+                    new DownloadTask().executeOnExecutor(TASK_EXECUTOR, downloadRecord);
+                }else{
+                    downloadRecord.resumeDownload();
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 if (mQuit) {
@@ -34,5 +43,16 @@ public class RequestDispatcher extends Thread{
                 continue;
             }
         }
+    }
+
+    public void addRequest(DownloadRequest request) {
+        DownloadRecord record = new DownloadRecord(request);
+        sRecordMap.put(request.getId(), record);
+        mRecordQueue.add(record);
+
+    }
+
+    public void enqueueRecord(DownloadRecord record){
+        mRecordQueue.add(record);
     }
 }

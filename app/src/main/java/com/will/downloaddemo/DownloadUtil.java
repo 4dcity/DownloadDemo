@@ -2,6 +2,8 @@ package com.will.downloaddemo;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.NonNull;
 import android.util.Log;
 import android.util.SparseArray;
@@ -16,14 +18,13 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 import static com.will.downloaddemo.DownloadUtil.DownloadRunnable.TAG;
 
@@ -36,11 +37,12 @@ public class DownloadUtil {
 
     private static DownloadUtil instance;
 
-    private Handler mHandler;
-    public final static ExecutorService TASK_EXECUTOR = Executors.newCachedThreadPool();;
-    private Map<String, DownloadTask> mDownloadTasks;
-    private BlockingQueue<DownloadRequest> mRequestQueue;
-    private RequestDispatcher requestDispatcher;
+    final static Handler sHandler;
+    final static ExecutorService TASK_EXECUTOR;
+    static Map<String, DownloadRecord> sRecordMap;
+    static Semaphore sPermit;
+    private final Context mAppContext;
+    private RequestDispatcher mRequestDispatcher;
 
     public static final int MSG_FINISHED = 1;
     public static final int MSG_PROGRESS = 2;
@@ -58,29 +60,73 @@ public class DownloadUtil {
     public final static int TIME_OUT = 5000;
     public final static int THREAD_NUM = 5;
 
-    private DownloadUtil(){
-        mDownloadTasks = new HashMap<>();
-        mRequestQueue = new LinkedBlockingQueue<>();
-        requestDispatcher = new RequestDispatcher(mRequestQueue);
-        requestDispatcher.start();
+    static{
+        TASK_EXECUTOR = Executors.newCachedThreadPool();
+        sHandler = new Handler(Looper.getMainLooper()){
+            @Override
+            public void handleMessage(Message msg) {
+                if(msg.obj!=null){
+                    DownloadRecord record = (DownloadRecord) msg.obj;
+                    switch (msg.what){
+                        case MSG_PROGRESS:
+                            record.getListener().onProgress(record.getProgress());
+                            break;
+                        case MSG_FINISHED:
+                            record.getListener().onSuccess();
+                            sRecordMap.remove(record.getId());
+                            sPermit.release();
+                            break;
+                    }
+                }
+            }
+        };
+        sRecordMap = new LinkedHashMap<>();
+        sPermit = new Semaphore(3);
     }
 
-    public static DownloadUtil getInstance(){
+    private DownloadUtil(Context appContext) {
+        mAppContext = appContext;
+        mRequestDispatcher = new RequestDispatcher();
+        mRequestDispatcher.start();
+    }
+
+    public static DownloadUtil get(Context context){
         if (instance == null){
             synchronized(DownloadUtil.class){
                 if (instance == null)
-                    instance = new DownloadUtil();
+                    instance = new DownloadUtil(context.getApplicationContext());
             }
         }
         return instance;
     }
 
-    public String enqueue(DownloadRequest request){
-        mRequestQueue.offer(request);
-        return null;
+    public Context getContext(){
+        return mAppContext;
     }
 
-    private static String getMD5(String string) {
+    public String enqueueRequest(DownloadRequest request){
+        mRequestDispatcher.addRequest(request);
+        return request.getId();
+    }
+
+    void enqueueRecord(DownloadRecord record){
+        mRequestDispatcher.enqueueRecord(record);
+    }
+
+    public void pause(String handle){
+        sRecordMap.get(handle).pauseDownload();
+    }
+
+    public void resume(String handle){
+        sRecordMap.get(handle).resumeDownload();
+    }
+
+    public int getState(String handle){
+        return sRecordMap.get(handle).getDownloadState();
+    }
+
+
+    public static String getMD5(String string) {
         byte[] hash;
 
         try {

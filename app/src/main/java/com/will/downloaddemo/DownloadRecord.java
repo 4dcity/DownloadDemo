@@ -3,23 +3,25 @@ package com.will.downloaddemo;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
 import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
 import static com.will.downloaddemo.DownloadUtil.THREAD_NUM;
+import static com.will.downloaddemo.DownloadUtil.sPermit;
 
 /**
  * Created by Will on 2017/3/13.
  */
 
 public class DownloadRecord {
+    private final DownloadRequest request;
     private int currentLength;
     private int fileLength;
-    private DownloadRequest request;
     private int completedSubTask;
     private volatile int downloadState;
-    private List<DownloadTask.SubTask> subTaskList;
+    private List<SubTask> subTaskList;
     private String filePath;
 
-    public DownloadRecord(DownloadRequest request, DownloadListener listener) {
+    public DownloadRecord(DownloadRequest request) {
         this.request = request;
         subTaskList = new ArrayList<>();
     }
@@ -60,7 +62,7 @@ public class DownloadRecord {
         this.completedSubTask = completedSubTask;
     }
 
-    public List<DownloadTask.SubTask> getSubTaskList() {
+    public List<SubTask> getSubTaskList() {
         return subTaskList;
     }
 
@@ -87,14 +89,35 @@ public class DownloadRecord {
 
     public void pauseDownload(){
         downloadState = STATE_PAUSED;
+        sPermit.release();
     }
 
     public boolean isPaused() {
         return downloadState == STATE_PAUSED;
     }
 
+    public void resumeDownload(){
+        downloadState = STATE_DOWNLOADING;
+        DownloadUtil.get().enqueueRecord(this);
+    }
+
     public String getFilePath() {
         return getSaveDir() + "/" + getSaveName();
     }
 
+    public DownloadListener getListener(){
+        return request.getListener();
+    }
+
+    public void setListener(DownloadListener listener){
+        request.setListener(listener);
+    }
+
+    public String getId() {
+        return request.getId();
+    }
+
+    public int getProgress(){
+        return Math.round(getCurrentLength() / (getFileLength() * 1.0f) * 100);
+    }
 }
