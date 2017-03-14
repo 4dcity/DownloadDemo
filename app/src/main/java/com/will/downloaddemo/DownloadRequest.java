@@ -2,33 +2,24 @@ package com.will.downloaddemo;
 
 import android.os.Environment;
 
+import java.io.Serializable;
+
 import static com.will.downloaddemo.DownloadUtil.getMD5;
 
 /**
  * Created by Will on 2017/3/13.
  */
 
-public class DownloadRequest {
+public class DownloadRequest{
 
     private String downloadUrl;
     private String saveDir;
     private String saveName;
 
-    private DownloadListener listener;
-
     private DownloadRequest(Builder builder) {
         downloadUrl = builder.downloadUrl;
         saveDir = builder.saveDir;
         saveName = builder.saveName;
-        listener = builder.listener;
-    }
-
-    public DownloadListener getListener() {
-        return listener;
-    }
-
-    public void setListener(DownloadListener listener) {
-        this.listener = listener;
     }
 
     public String getFilePath() {

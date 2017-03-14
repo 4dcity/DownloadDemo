@@ -1,32 +1,17 @@
 package com.will.downloaddemo;
 
 import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
-import android.support.annotation.NonNull;
-import android.util.Log;
-import android.util.SparseArray;
+import android.content.Intent;
+import android.support.v4.content.LocalBroadcastManager;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-
-import static com.will.downloaddemo.DownloadUtil.DownloadRunnable.TAG;
 
 
 /**
@@ -35,14 +20,24 @@ import static com.will.downloaddemo.DownloadUtil.DownloadRunnable.TAG;
 
 public class DownloadUtil {
 
+    private static final String ACTION_PROGRESS = BuildConfig.APPLICATION_ID + "action_progress";
+    private static final String ACTION_FINISHED = BuildConfig.APPLICATION_ID + "action_finished";
+    private static final String ACTION_PAUSED = BuildConfig.APPLICATION_ID + "action_paused";
+    private static final String ACTION_FILE_LENGTH_SET = BuildConfig.APPLICATION_ID + "action_file_length_set";
+    private static final String ACTION_FAILED = BuildConfig.APPLICATION_ID + "action_failed";
+
+    private static final String EXTRA_TASKID = BuildConfig.APPLICATION_ID + "extra_taskid";
+    private static final String EXTRA_PROGRESS = BuildConfig.APPLICATION_ID + "extra_progress";
+    private static final String EXTRA_ERROR_MSG = BuildConfig.APPLICATION_ID + "extra_error_msg";
+
     private static DownloadUtil instance;
 
-    final static Handler sHandler;
     final static ExecutorService TASK_EXECUTOR;
     static Map<String, DownloadRecord> sRecordMap;
     static Semaphore sPermit;
-    private final Context mAppContext;
+    private Context mAppContext;
     private RequestDispatcher mRequestDispatcher;
+    private LocalBroadcastManager broadcastManager;
 
     public static final int MSG_FINISHED = 1;
     public static final int MSG_PROGRESS = 2;
@@ -62,39 +57,25 @@ public class DownloadUtil {
 
     static{
         TASK_EXECUTOR = Executors.newCachedThreadPool();
-        sHandler = new Handler(Looper.getMainLooper()){
-            @Override
-            public void handleMessage(Message msg) {
-                if(msg.obj!=null){
-                    DownloadRecord record = (DownloadRecord) msg.obj;
-                    switch (msg.what){
-                        case MSG_PROGRESS:
-                            record.getListener().onProgress(record.getProgress());
-                            break;
-                        case MSG_FINISHED:
-                            record.getListener().onSuccess();
-                            sRecordMap.remove(record.getId());
-                            sPermit.release();
-                            break;
-                    }
-                }
-            }
-        };
         sRecordMap = new LinkedHashMap<>();
         sPermit = new Semaphore(3);
     }
 
-    private DownloadUtil(Context appContext) {
-        mAppContext = appContext;
+    public void init(Context context){
+        mAppContext = context.getApplicationContext();
+        broadcastManager = LocalBroadcastManager.getInstance(context);
+    }
+
+    private DownloadUtil() {
         mRequestDispatcher = new RequestDispatcher();
         mRequestDispatcher.start();
     }
 
-    public static DownloadUtil get(Context context){
+    public static DownloadUtil get(){
         if (instance == null){
             synchronized(DownloadUtil.class){
                 if (instance == null)
-                    instance = new DownloadUtil(context.getApplicationContext());
+                    instance = new DownloadUtil();
             }
         }
         return instance;
@@ -113,16 +94,22 @@ public class DownloadUtil {
         mRequestDispatcher.enqueueRecord(record);
     }
 
-    public void pause(String handle){
-        sRecordMap.get(handle).pauseDownload();
+    public void pause(String taskId){
+        sRecordMap.get(taskId).setDownloadState(STATE_PAUSED);
+        sPermit.release();
     }
 
-    public void resume(String handle){
-        sRecordMap.get(handle).resumeDownload();
+    /**
+     * 回复下载后要重新排队
+     * @param taskId
+     */
+    public void resume(String taskId){
+        sRecordMap.get(taskId).setDownloadState(STATE_DOWNLOADING);
+        enqueueRecord(sRecordMap.get(taskId));
     }
 
-    public int getState(String handle){
-        return sRecordMap.get(handle).getDownloadState();
+    public int getTaskState(String taskId){
+        return sRecordMap.get(taskId).getDownloadState();
     }
 
 
@@ -149,276 +136,33 @@ public class DownloadUtil {
         return hex.toString();
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    DownloadListener mListener;
-    boolean isCancel;
-    boolean isStop;
-    boolean isDownloading;
-
-    int mCurrentLocation;
-    private int mCompleteThreadNum;
-    private int mStopNum;
-    private int mCancelNum;
-    private boolean newTask;
-
-    Executor downloadExecutor;
-
-
-
-    /**
-     * 多线程断点续传下载文件，暂停和继续
-     *
-     * @param context          必须添加该参数，不能使用全局变量的context
-     * @param downloadUrl      下载路径
-     * @param filePath         保存路径
-     * @param downloadListener 下载进度监听 {@link DownloadListener}
-     */
-    public void download(final Context context, @NonNull final String downloadUrl, @NonNull final String filePath,
-                         @NonNull final DownloadListener downloadListener) {
-        isDownloading = true;
-        mCurrentLocation = 0;
-        isStop = false;
-        isCancel = false;
-        mCancelNum = 0;
-        mStopNum = 0;
-        final File dFile = new File(filePath);
-        //读取已完成的线程数
-        final File configFile = new File(context.getFilesDir().getPath() + "/temp/" + dFile.getName() + ".properties");
-        try {
-            if (!configFile.exists()) { //记录文件被删除，则重新下载
-                newTask = true;
-                FileUtil.createFile(configFile.getPath());
-            } else {
-                newTask = false;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            mListener.onFail();
-            return;
-        }
-        newTask = !dFile.exists();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    mListener = downloadListener;
-                    URL url = new URL(downloadUrl);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
-                    conn.setRequestProperty("Charset", "UTF-8");
-                    conn.setConnectTimeout(TIME_OUT);
-                    conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
-                    conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
-                    conn.connect();
-                    int len = conn.getContentLength();
-                    if (len < 0) {  //网络被劫持时会出现这个问题
-                        mListener.onFail();
-                        return;
-                    }
-                    int code = conn.getResponseCode();
-                    if (code == 200) {
-                        int fileLength = conn.getContentLength();
-                        //必须建一个文件
-                        FileUtil.createFile(filePath);
-                        RandomAccessFile file = new RandomAccessFile(filePath, "rwd");
-                        //设置文件长度
-                        file.setLength(fileLength);
-                        mListener.onPreDownload(conn);
-                        //分配每条线程的下载区间
-                        Properties pro = null;
-                        int blockSize = fileLength / THREAD_NUM;
-                        SparseArray<Thread> tasks = new SparseArray<>();
-                        for (int i = 0; i < THREAD_NUM; i++) {
-                            long startL = i * blockSize, endL = (i + 1) * blockSize;
-                            Object state = pro.getProperty(dFile.getName() + "_state_" + i);
-                            if (state != null && Integer.parseInt(state + "") == 1) {  //该线程已经完成
-                                mCurrentLocation += endL - startL;
-                                Log.d(TAG, "++++++++++ 线程_" + i + "_已经下载完成 ++++++++++");
-                                mCompleteThreadNum++;
-                                if (mCompleteThreadNum == THREAD_NUM) {
-                                    if (configFile.exists()) {
-                                        configFile.delete();
-                                    }
-                                    mListener.onComplete();
-                                    isDownloading = false;
-                                    System.gc();
-                                    return;
-                                }
-                                continue;
-                            }
-                            //分配下载位置
-                            Object record = pro.getProperty(dFile.getName() + "_record_" + i);
-                            if (!newTask && record != null && Long.parseLong(record + "") > 0) {       //如果有记录，则恢复下载
-                                Long r = Long.parseLong(record + "");
-                                mCurrentLocation += r - startL;
-                                Log.d(TAG, "++++++++++ 线程_" + i + "_恢复下载 ++++++++++");
-                                mListener.onChildResume(r);
-                                startL = r;
-                            }
-                            if (i == (THREAD_NUM - 1)) {
-                                endL = fileLength;//如果整个文件的大小不为线程个数的整数倍，则最后一个线程的结束位置即为文件的总长度
-                            }
-                            DownloadEntity entity = new DownloadEntity(context, fileLength, downloadUrl, dFile, i, startL, endL);
-                            DownloadRunnable task = new DownloadRunnable(entity);
-                            tasks.put(i, new Thread(task));
-                        }
-                        if (mCurrentLocation > 0) {
-                            mListener.onResume(mCurrentLocation);
-                        } else {
-                            mListener.onStart();
-                        }
-                        for (int i = 0, count = tasks.size(); i < count; i++) {
-                            Thread task = tasks.get(i);
-                            if (task != null) {
-                                task.start();
-                            }
-                        }
-                    } else {
-                        Log.e(TAG, "下载失败，返回码：" + code);
-                        isDownloading = false;
-                        System.gc();
-                        mListener.onFail();
-                    }
-                } catch (IOException e) {
-                    Log.e(TAG, "下载失败【mDownloadUrl:" + downloadUrl + "】\n【filePath:" + filePath + "】" + e.getMessage());
-                    isDownloading = false;
-                    mListener.onFail();
-                }
-            }
-        }).start();
+    public void progressUpdated(DownloadRecord record){
+        Intent intent = new Intent(ACTION_PROGRESS);
+        intent.putExtra(EXTRA_TASKID, record.getId());
+        intent.putExtra(EXTRA_PROGRESS, record.getProgress());
+        broadcastManager.sendBroadcast(intent);
     }
 
-
-
-
-    class DownloadRunnable implements Runnable {
-        public static final String TAG = "DownLoadTask";
-        private DownloadEntity dEntity;
-        private String configFPath;
-
-        public DownloadRunnable(DownloadEntity downloadInfo) {
-            this.dEntity = downloadInfo;
-            configFPath = dEntity.context.getFilesDir().getPath() + "/temp/" + dEntity.tempFile.getName() + ".properties";
-        }
-
-        @Override
-        public void run() {
-            try {
-                Log.d(TAG, "线程_" + dEntity.threadId + "_正在下载【" + "开始位置 : " + dEntity.startLocation + "，结束位置：" + dEntity.endLocation + "】");
-                URL url = new URL(dEntity.downloadUrl);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                //在头里面请求下载开始位置和结束位置
-                conn.setRequestProperty("Range", "bytes=" + dEntity.startLocation + "-" + dEntity.endLocation);
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Charset", "UTF-8");
-                conn.setConnectTimeout(TIME_OUT);
-                conn.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)");
-                conn.setRequestProperty("Accept", "image/gif, image/jpeg, image/pjpeg, image/pjpeg, application/x-shockwave-flash, application/xaml+xml, application/vnd.ms-xpsdocument, application/x-ms-xbap, application/x-ms-application, application/vnd.ms-excel, application/vnd.ms-powerpoint, application/msword, */*");
-                conn.setReadTimeout(2000);  //设置读取流的等待时间,必须设置该参数
-                InputStream is = conn.getInputStream();
-                //创建可设置位置的文件
-                RandomAccessFile file = new RandomAccessFile(dEntity.tempFile, "rwd");
-                //设置每条线程写入文件的位置
-                file.seek(dEntity.startLocation);
-                byte[] buffer = new byte[1024];
-                int len;
-                //当前子线程的下载位置
-                long currentLocation = dEntity.startLocation;
-                while ((len = is.read(buffer)) != -1) {
-                    if (isCancel) {
-                        Log.d(TAG, "++++++++++ thread_" + dEntity.threadId + "_cancel ++++++++++");
-                        break;
-                    }
-
-                    if (isStop) {
-                        break;
-                    }
-
-                    //把下载数据数据写入文件
-                    file.write(buffer, 0, len);
-                    synchronized (DownloadUtil.this) {
-                        mCurrentLocation += len;
-                        mListener.onProgress(mCurrentLocation);
-                    }
-                    currentLocation += len;
-                }
-                file.close();
-                is.close();
-
-                if (isCancel) {
-                    synchronized (DownloadUtil.this) {
-                        mCancelNum++;
-                        if (mCancelNum == THREAD_NUM) {
-                            File configFile = new File(configFPath);
-                            if (configFile.exists()) {
-                                configFile.delete();
-                            }
-
-                            if (dEntity.tempFile.exists()) {
-                                dEntity.tempFile.delete();
-                            }
-                            Log.d(TAG, "++++++++++++++++ onCancel +++++++++++++++++");
-                            isDownloading = false;
-                            mListener.onCancel();
-                            System.gc();
-                        }
-                    }
-                    return;
-                }
-
-                //停止状态不需要删除记录文件
-                if (isStop) {
-                    synchronized (DownloadUtil.this) {
-                        mStopNum++;
-                        String location = String.valueOf(currentLocation);
-                        Log.i(TAG, "thread_" + dEntity.threadId + "_stop, stop location ==> " + currentLocation);
-
-                        if (mStopNum == THREAD_NUM) {
-                            Log.d(TAG, "++++++++++++++++ onPause +++++++++++++++++");
-                            isDownloading = false;
-                            mListener.onPause(mCurrentLocation);
-                            System.gc();
-                        }
-                    }
-                    return;
-                }
-
-                Log.i(TAG, "线程【" + dEntity.threadId + "】下载完毕");
-                mListener.onChildComplete(dEntity.endLocation);
-                mCompleteThreadNum++;
-                if (mCompleteThreadNum == THREAD_NUM) {
-                    File configFile = new File(configFPath);
-                    if (configFile.exists()) {
-                        configFile.delete();
-                    }
-                    mListener.onComplete();
-                    isDownloading = false;
-                    System.gc();
-                }
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-                isDownloading = false;
-                mListener.onFail();
-            } catch (IOException e) {
-                isDownloading = false;
-                mListener.onFail();
-            } catch (Exception e) {
-                isDownloading = false;
-                mListener.onFail();
-            }
-        }
+    public void taskFinished(DownloadRecord record) {
+        sRecordMap.remove(record.getId());
+        sPermit.release();
+        Intent intent = new Intent(ACTION_FINISHED);
+        intent.putExtra(EXTRA_TASKID, record.getId());
+        broadcastManager.sendBroadcast(intent);
     }
+
+    public void fileLengthSet(DownloadRecord record) {
+        Intent intent = new Intent(ACTION_FILE_LENGTH_SET);
+        intent.putExtra(EXTRA_TASKID, record.getId());
+        broadcastManager.sendBroadcast(intent);
+    }
+
+    public void downloadFailed(DownloadRecord record, String errorMsg) {
+        sPermit.release();
+        Intent intent = new Intent(ACTION_FAILED);
+        intent.putExtra(EXTRA_TASKID, record.getId());
+        intent.putExtra(EXTRA_ERROR_MSG, errorMsg);
+        broadcastManager.sendBroadcast(intent);
+    }
+
 }

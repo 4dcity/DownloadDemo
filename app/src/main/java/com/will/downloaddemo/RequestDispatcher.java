@@ -33,7 +33,7 @@ public class RequestDispatcher extends Thread{
                 if(downloadRecord.getDownloadState() == STATE_INITIAL) {
                     new DownloadTask().executeOnExecutor(TASK_EXECUTOR, downloadRecord);
                 }else{
-                    downloadRecord.resumeDownload();
+                    DownloadUtil.get().resume(downloadRecord.getId());
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -49,7 +49,6 @@ public class RequestDispatcher extends Thread{
         DownloadRecord record = new DownloadRecord(request);
         sRecordMap.put(request.getId(), record);
         mRecordQueue.add(record);
-
     }
 
     public void enqueueRecord(DownloadRecord record){

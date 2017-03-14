@@ -48,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
                             .downloadUrl(edtUrl.getText().toString())
                             .saveName(System.currentTimeMillis() / 1000 + ".apk")
                             .build();
-                    DownloadUtil.get(this).enqueueRequest(request);
+                    DownloadUtil.get().enqueueRequest(request);
                 }
                 break;
         }
@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
 ////                handle = DownloadUtil.get().enqueueRecord(request);
 //                break;
 ////            case R.id.button2:
-////                if(DownloadUtil.get().getState(handle) == STATE_DOWNLOADING){
+////                if(DownloadUtil.get().getTaskState(handle) == STATE_DOWNLOADING){
 ////                    DownloadUtil.get().pause(handle);
 ////                }else {
 ////                    DownloadUtil.get().resume(handle);

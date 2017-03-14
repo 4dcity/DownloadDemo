@@ -33,28 +33,31 @@ public class DownloadTask extends AsyncTask<DownloadRecord, Integer, DownloadRec
             RandomAccessFile file = new RandomAccessFile(record.getFilePath(), "rwd");
             file.setLength(fileLength);
             record.setFileLength(fileLength);
+            DownloadUtil.get().fileLengthSet(record);
             return record;
         } catch (IOException e) {
+            DownloadUtil.get().downloadFailed(record, "Get filelength failed!");
             e.printStackTrace();
-            sPermit.release();
         }
 
         return null;
     }
 
     @Override
-    protected void onPostExecute(DownloadRecord downloadRecord) {
-        sRecordMap.put(downloadRecord.getId(), downloadRecord);
-        int blockSize = downloadRecord.getFileLength() / THREAD_NUM;
-        downloadRecord.setDownloadState(STATE_DOWNLOADING);
-        for (int i = 0; i < THREAD_NUM; i++) {
-            int startL = i * blockSize;
-            int endL = (i + 1) * blockSize;
-            if (i == THREAD_NUM - 1)
-                endL = downloadRecord.getFileLength();
-            SubTask subTask = new SubTask(downloadRecord, startL, endL);
-            downloadRecord.getSubTaskList().add(subTask);
-            TASK_EXECUTOR.execute(subTask);
+    protected void onPostExecute(DownloadRecord record) {
+        if (record != null) {
+            sRecordMap.put(record.getId(), record);
+            int blockSize = record.getFileLength() / THREAD_NUM;
+            record.setDownloadState(STATE_DOWNLOADING);
+            for (int i = 0; i < THREAD_NUM; i++) {
+                int startL = i * blockSize;
+                int endL = (i + 1) * blockSize;
+                if (i == THREAD_NUM - 1)
+                    endL = record.getFileLength();
+                SubTask subTask = new SubTask(record, startL, endL);
+                record.getSubTaskList().add(subTask);
+                TASK_EXECUTOR.execute(subTask);
+            }
         }
     }
 }

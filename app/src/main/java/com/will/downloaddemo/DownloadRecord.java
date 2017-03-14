@@ -19,7 +19,6 @@ public class DownloadRecord {
     private int completedSubTask;
     private volatile int downloadState;
     private List<SubTask> subTaskList;
-    private String filePath;
 
     public DownloadRecord(DownloadRequest request) {
         this.request = request;
@@ -87,30 +86,12 @@ public class DownloadRecord {
         currentLength+=length;
     }
 
-    public void pauseDownload(){
-        downloadState = STATE_PAUSED;
-        sPermit.release();
-    }
-
     public boolean isPaused() {
         return downloadState == STATE_PAUSED;
     }
 
-    public void resumeDownload(){
-        downloadState = STATE_DOWNLOADING;
-        DownloadUtil.get().enqueueRecord(this);
-    }
-
     public String getFilePath() {
         return getSaveDir() + "/" + getSaveName();
-    }
-
-    public DownloadListener getListener(){
-        return request.getListener();
-    }
-
-    public void setListener(DownloadListener listener){
-        request.setListener(listener);
     }
 
     public String getId() {
