@@ -14,10 +14,10 @@ import static com.will.downloaddemo.DownloadUtil.sPermit;
 
 public class DownloadRecord {
     private final DownloadRequest request;
+    private volatile int downloadState;
     private int currentLength;
     private int fileLength;
     private int completedSubTask;
-    private volatile int downloadState;
     private List<SubTask> subTaskList;
 
     public DownloadRecord(DownloadRequest request) {

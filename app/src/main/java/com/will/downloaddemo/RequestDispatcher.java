@@ -4,7 +4,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
-import static com.will.downloaddemo.DownloadUtil.TASK_EXECUTOR;
 import static com.will.downloaddemo.DownloadUtil.sPermit;
 import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
@@ -28,12 +27,12 @@ public class RequestDispatcher extends Thread{
     public void run() {
         while (true){
             try {
-                DownloadRecord downloadRecord = mRecordQueue.take();
+                DownloadRecord record = mRecordQueue.take();
                 sPermit.acquire();
-                if(downloadRecord.getDownloadState() == STATE_INITIAL) {
-                    new DownloadTask().executeOnExecutor(TASK_EXECUTOR, downloadRecord);
+                if(record.getDownloadState() == STATE_INITIAL) {
+                    DownloadUtil.get().start(record);
                 }else{
-                    DownloadUtil.get().resume(downloadRecord.getId());
+                    DownloadUtil.get().resume(record.getId());
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -49,6 +48,7 @@ public class RequestDispatcher extends Thread{
         DownloadRecord record = new DownloadRecord(request);
         sRecordMap.put(request.getId(), record);
         mRecordQueue.add(record);
+        DownloadUtil.get().newTaskAdd(record);
     }
 
     public void enqueueRecord(DownloadRecord record){

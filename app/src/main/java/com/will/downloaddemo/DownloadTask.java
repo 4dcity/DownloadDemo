@@ -46,9 +46,7 @@ public class DownloadTask extends AsyncTask<DownloadRecord, Integer, DownloadRec
     @Override
     protected void onPostExecute(DownloadRecord record) {
         if (record != null) {
-            sRecordMap.put(record.getId(), record);
             int blockSize = record.getFileLength() / THREAD_NUM;
-            record.setDownloadState(STATE_DOWNLOADING);
             for (int i = 0; i < THREAD_NUM; i++) {
                 int startL = i * blockSize;
                 int endL = (i + 1) * blockSize;

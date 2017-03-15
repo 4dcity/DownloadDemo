@@ -48,7 +48,7 @@ public class DownloadRequest{
 
     public static final class Builder {
         private String downloadUrl;
-        private String saveDir = Environment.getExternalStorageDirectory().toString();
+        private String saveDir = Environment.getExternalStorageDirectory().toString() + "/1";
         private String saveName = "/" + System.currentTimeMillis();
         private DownloadListener listener;
 
