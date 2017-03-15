@@ -20,7 +20,7 @@ import butterknife.ButterKnife;
 import butterknife.OnClick;
 
 import static com.will.downloaddemo.DownloadUtil.ACTION_FAILED;
-import static com.will.downloaddemo.DownloadUtil.ACTION_FILE_LENGTH_SET;
+import static com.will.downloaddemo.DownloadUtil.ACTION_FILE_LENGTH_GET;
 import static com.will.downloaddemo.DownloadUtil.ACTION_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.ACTION_NEW_TASK_ADD;
 import static com.will.downloaddemo.DownloadUtil.ACTION_PAUSED;
@@ -67,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(ACTION_PROGRESS);
         filter.addAction(ACTION_FINISHED);
         filter.addAction(ACTION_PAUSED);
-        filter.addAction(ACTION_FILE_LENGTH_SET);
+        filter.addAction(ACTION_FILE_LENGTH_GET);
         filter.addAction(ACTION_FAILED);
         filter.addAction(ACTION_NEW_TASK_ADD);
         filter.addAction(ACTION_START);
@@ -118,44 +118,10 @@ public class MainActivity extends AppCompatActivity {
                             .saveName(System.currentTimeMillis() / 1000 + ".apk")
                             .build();
                     DownloadUtil.get().enqueueRequest(request);
+                    DownloadUtil.get().save();
                 }
                 break;
         }
     }
-
-
-//    public void onClick(View view) {
-//        switch (view.getId()) {
-//            case R.id.button:
-////                DownloadRequest request = DownloadRequest.newBuilder()
-////                        .downloadUrl(mDownloadUrl)
-////                        .saveName("didi.apk")
-////                        .downloadListener(new DownloadCallback(){
-////                            @Override
-////                            public void onProgress(int progress) {
-////                                progressBar.setProgress(progress);
-////                                txtProgress.setText(progress + "%");
-////                            }
-////
-////                            @Override
-////                            public void onSuccess() {
-////                                txtProgress.setText("完成");
-////                            }
-////                        })
-////                        .build();
-////
-////                handle = DownloadUtil.get().reEnqueue(request);
-//                break;
-////            case R.id.button2:
-////                if(DownloadUtil.get().getTaskState(handle) == STATE_DOWNLOADING){
-////                    DownloadUtil.get().pause(handle);
-////                }else {
-////                    DownloadUtil.get().resume(handle);
-////                }
-////                break;
-////            case R.id.button3:
-////                break;
-//        }
-//    }
 
 }

@@ -7,12 +7,9 @@ import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
 import static com.will.downloaddemo.DownloadUtil.TASK_EXECUTOR;
-import static com.will.downloaddemo.DownloadUtil.THREAD_NUM;
+import static com.will.downloaddemo.DownloadUtil.sThreadNum;
 import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
-import static com.will.downloaddemo.DownloadUtil.sPermit;
-import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
 /**
  * Created by Will on 2017/3/14.
@@ -46,11 +43,11 @@ public class DownloadTask extends AsyncTask<DownloadRecord, Integer, DownloadRec
     @Override
     protected void onPostExecute(DownloadRecord record) {
         if (record != null) {
-            int blockSize = record.getFileLength() / THREAD_NUM;
-            for (int i = 0; i < THREAD_NUM; i++) {
+            int blockSize = record.getFileLength() / sThreadNum;
+            for (int i = 0; i < sThreadNum; i++) {
                 int startL = i * blockSize;
                 int endL = (i + 1) * blockSize;
-                if (i == THREAD_NUM - 1)
+                if (i == sThreadNum - 1)
                     endL = record.getFileLength();
                 SubTask subTask = new SubTask(record, startL, endL);
                 record.getSubTaskList().add(subTask);

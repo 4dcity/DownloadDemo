@@ -1,28 +1,24 @@
 package com.will.downloaddemo;
 
-import java.net.HttpURLConnection;
-
 interface DownloadListener{
 
-    void onProgress(int progress);
+    void onProgress(DownloadRecord record);
 
-    void onSuccess();
+    void onNewTaskAdd(DownloadRecord record);
 
-    void onChildComplete(long endLocation);
+    void onFailed(DownloadRecord record, String errMsg);
 
-    void onPause(int currentLocation);
+    void onPaused(DownloadRecord record);
 
-    void onPreDownload(HttpURLConnection conn);
+    void onStart(DownloadRecord record);
 
-    void onFail();
+    void onResume(DownloadRecord record);
 
-    void onComplete();
+    void onReEnqueue(DownloadRecord record);
 
-    void onChildResume(Long r);
+    void onFinish(DownloadRecord record);
 
-    void onResume(int currentLocation);
+    void onFileLengthGet(DownloadRecord record);
 
-    void onStart();
-
-    void onCancel();
+    void onCanceled(DownloadRecord record);
 }

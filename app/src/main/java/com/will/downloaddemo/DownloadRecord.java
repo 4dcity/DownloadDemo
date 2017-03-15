@@ -1,43 +1,40 @@
 package com.will.downloaddemo;
 
+import com.google.gson.annotations.Expose;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
-import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
-import static com.will.downloaddemo.DownloadUtil.THREAD_NUM;
-import static com.will.downloaddemo.DownloadUtil.sPermit;
+import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
+import static com.will.downloaddemo.DownloadUtil.sThreadNum;
 
 /**
  * Created by Will on 2017/3/13.
  */
 
 public class DownloadRecord {
-    private final DownloadRequest request;
-    private volatile int downloadState;
-    private int currentLength;
-    private int fileLength;
-    private int completedSubTask;
-    private List<SubTask> subTaskList;
+    @Expose private final DownloadRequest request;
+    @Expose private volatile int downloadState;
+    @Expose private int currentLength;
+    @Expose private int fileLength;
+    @Expose private int completedSubTask;
+    @Expose private List<SubTask> subTaskList;
 
-    public DownloadRecord(DownloadRequest request) {
+    DownloadRecord(DownloadRequest request) {
         this.request = request;
         subTaskList = new ArrayList<>();
+        downloadState = STATE_INITIAL;
     }
 
     public int getCurrentLength() {
         return currentLength;
     }
 
-    public void setCurrentLength(int currentLength) {
-        this.currentLength = currentLength;
-    }
-
     public int getFileLength() {
         return fileLength;
     }
 
-    public void setFileLength(int fileLength) {
+    void setFileLength(int fileLength) {
         this.fileLength = fileLength;
     }
 
@@ -53,14 +50,6 @@ public class DownloadRecord {
         return request.getSaveName();
     }
 
-    public int getCompletedSubTask() {
-        return completedSubTask;
-    }
-
-    public void setCompletedSubTask(int completedSubTask) {
-        this.completedSubTask = completedSubTask;
-    }
-
     public List<SubTask> getSubTaskList() {
         return subTaskList;
     }
@@ -69,25 +58,20 @@ public class DownloadRecord {
         return downloadState;
     }
 
-    public void setDownloadState(int downloadState) {
+    void setDownloadState(int downloadState) {
         this.downloadState = downloadState;
     }
 
-
-    public boolean completeSubTask(){
+    synchronized boolean completeSubTask(){
         completedSubTask++;
-        if(completedSubTask == THREAD_NUM){
+        if(completedSubTask == sThreadNum){
             return true;
         }
         return false;
     }
 
-    public synchronized void increaseLength(int length) {
+    synchronized void increaseLength(int length) {
         currentLength+=length;
-    }
-
-    public boolean isPaused() {
-        return downloadState == STATE_PAUSED;
     }
 
     public String getFilePath() {
@@ -101,4 +85,12 @@ public class DownloadRecord {
     public int getProgress(){
         return Math.round(getCurrentLength() / (getFileLength() * 1.0f) * 100);
     }
+
+    void reset(){
+        currentLength = 0;
+        fileLength = 0;
+        completedSubTask = 0;
+        subTaskList.clear();
+    }
+
 }

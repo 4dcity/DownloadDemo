@@ -59,8 +59,8 @@ public class TaskListAdapter extends RecyclerView.Adapter<TaskListAdapter.TaskVi
                 holder.tvProgress.setText("未开始");
                 break;
             case STATE_FINISHED:
-                holder.btnState.setText("完成");
-                holder.tvProgress.setText("100%");
+                holder.btnState.setText("打开");
+                holder.tvProgress.setText("已完成");
                 break;
             case STATE_WAITING:
                 holder.btnState.setText("等待开始");

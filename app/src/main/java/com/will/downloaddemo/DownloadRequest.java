@@ -2,7 +2,7 @@ package com.will.downloaddemo;
 
 import android.os.Environment;
 
-import java.io.Serializable;
+import com.google.gson.annotations.Expose;
 
 import static com.will.downloaddemo.DownloadUtil.getMD5;
 
@@ -12,9 +12,9 @@ import static com.will.downloaddemo.DownloadUtil.getMD5;
 
 public class DownloadRequest{
 
-    private String downloadUrl;
-    private String saveDir;
-    private String saveName;
+    @Expose private String downloadUrl;
+    @Expose private String saveDir;
+    @Expose private String saveName;
 
     private DownloadRequest(Builder builder) {
         downloadUrl = builder.downloadUrl;

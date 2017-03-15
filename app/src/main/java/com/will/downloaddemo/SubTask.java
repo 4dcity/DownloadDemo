@@ -1,21 +1,20 @@
 package com.will.downloaddemo;
 
+import com.google.gson.annotations.Expose;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
-import java.net.SocketTimeoutException;
 import java.net.URL;
 
 import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
-import static com.will.downloaddemo.DownloadUtil.STATE_FAILED;
-import static com.will.downloaddemo.DownloadUtil.STATE_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
 public class SubTask implements Runnable {
     private DownloadRecord record;
-    private int startLocation;
-    private int endLocation;
+    @Expose private int startLocation;
+    @Expose private int endLocation;
 
     private InputStream is;
     private RandomAccessFile file;
@@ -42,7 +41,7 @@ public class SubTask implements Runnable {
             file = new RandomAccessFile(record.getFilePath(), "rwd");
             //设置每条线程写入文件的位置
             file.seek(startLocation);
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[4096];
             int len;
             while (record.getDownloadState() == STATE_DOWNLOADING
                     && (len = is.read(buffer)) != -1) {
@@ -54,12 +53,10 @@ public class SubTask implements Runnable {
 
             if (record.getDownloadState() == STATE_DOWNLOADING) {
                 if (record.completeSubTask()) {
-                    record.setDownloadState(STATE_FINISHED);
                     DownloadUtil.get().taskFinished(record);
                 }
             }
         } catch (IOException exception) {
-            record.setDownloadState(STATE_FAILED);
             DownloadUtil.get().downloadFailed(record,"subtask failed!");
         } finally {
             try {

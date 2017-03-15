@@ -3,6 +3,7 @@ package com.will.downloaddemo;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static com.will.downloaddemo.DownloadUtil.STATE_CANCELED;
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
 import static com.will.downloaddemo.DownloadUtil.STATE_WAITING;
 import static com.will.downloaddemo.DownloadUtil.sPermit;
@@ -30,7 +31,8 @@ public class RequestDispatcher extends Thread{
             try {
                 DownloadRecord record = mRecordQueue.take();
                 sPermit.acquire();
-                if(record.getDownloadState() == STATE_INITIAL) {
+                if(record.getDownloadState() == STATE_INITIAL
+                        || record.getDownloadState() == STATE_CANCELED) {
                     DownloadUtil.get().start(record);
                 }else if(record.getDownloadState() == STATE_WAITING){
                     DownloadUtil.get().resume(record.getId());
@@ -40,7 +42,6 @@ public class RequestDispatcher extends Thread{
                 if (mQuit) {
                     return;
                 }
-                continue;
             }
         }
     }
