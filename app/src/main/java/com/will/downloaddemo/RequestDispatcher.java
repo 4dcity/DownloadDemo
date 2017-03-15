@@ -4,6 +4,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
+import static com.will.downloaddemo.DownloadUtil.STATE_WAITING;
 import static com.will.downloaddemo.DownloadUtil.sPermit;
 import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
@@ -31,7 +32,7 @@ public class RequestDispatcher extends Thread{
                 sPermit.acquire();
                 if(record.getDownloadState() == STATE_INITIAL) {
                     DownloadUtil.get().start(record);
-                }else{
+                }else if(record.getDownloadState() == STATE_WAITING){
                     DownloadUtil.get().resume(record.getId());
                 }
             } catch (InterruptedException e) {

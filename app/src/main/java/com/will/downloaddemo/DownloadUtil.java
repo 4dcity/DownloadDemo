@@ -1,8 +1,11 @@
 package com.will.downloaddemo;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.support.v4.content.LocalBroadcastManager;
+import android.widget.Toast;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
@@ -28,6 +31,7 @@ public class DownloadUtil {
     public static final String ACTION_NEW_TASK_ADD = BuildConfig.APPLICATION_ID + "action_new_task_add";
     public static final String ACTION_RESUME = BuildConfig.APPLICATION_ID + "action_resume";
     public static final String ACTION_START = BuildConfig.APPLICATION_ID + "action_start";
+    public static final String ACTION_REENQUEUE = BuildConfig.APPLICATION_ID + "action_reenqueue";
 
     public static final String EXTRA_TASK_ID = BuildConfig.APPLICATION_ID + "extra_task_id";
     public static final String EXTRA_PROGRESS = BuildConfig.APPLICATION_ID + "extra_progress";
@@ -49,6 +53,7 @@ public class DownloadUtil {
     public static final int STATE_FINISHED = 3;
     public static final int STATE_CANCELED = 4;
     public static final int STATE_FAILED = 5;
+    public static final int STATE_WAITING = 6;
 
     public final static int TIME_OUT = 5000;
     public final static int THREAD_NUM = 5;
@@ -86,7 +91,11 @@ public class DownloadUtil {
 
     public boolean reEnqueue(String taskId) {
         if (sRecordMap.get(taskId) != null) {
+            sRecordMap.get(taskId).setDownloadState(STATE_WAITING);
             mRequestDispatcher.enqueueRecord(sRecordMap.get(taskId));
+            Intent intent = new Intent(ACTION_REENQUEUE);
+            intent.putExtra(EXTRA_TASK_ID, taskId);
+            broadcastManager.sendBroadcast(intent);
             return true;
         }
         return false;
@@ -190,5 +199,40 @@ public class DownloadUtil {
         Intent intent = new Intent(ACTION_START);
         intent.putExtra(EXTRA_TASK_ID, record.getId());
         broadcastManager.sendBroadcast(intent);
+    }
+
+    private void registerListener(Context context, final DownloadListener listener) {
+        if(listener != null) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ACTION_PROGRESS);
+            filter.addAction(ACTION_FINISHED);
+            filter.addAction(ACTION_PAUSED);
+            filter.addAction(ACTION_FILE_LENGTH_SET);
+            filter.addAction(ACTION_FAILED);
+            filter.addAction(ACTION_NEW_TASK_ADD);
+            filter.addAction(ACTION_START);
+            filter.addAction(ACTION_RESUME);
+            filter.addAction(ACTION_REENQUEUE);
+
+            LocalBroadcastManager.getInstance(context).registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    DownloadRecord record = DownloadUtil.parseRecord(intent);
+                    switch (intent.getAction()) {
+                        case ACTION_PROGRESS:
+
+                        case ACTION_NEW_TASK_ADD:
+
+                            break;
+                        case ACTION_FAILED:
+
+                            break;
+                        default:
+
+                            break;
+                    }
+                }
+            }, filter);
+        }
     }
 }

@@ -25,6 +25,7 @@ import static com.will.downloaddemo.DownloadUtil.ACTION_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.ACTION_NEW_TASK_ADD;
 import static com.will.downloaddemo.DownloadUtil.ACTION_PAUSED;
 import static com.will.downloaddemo.DownloadUtil.ACTION_PROGRESS;
+import static com.will.downloaddemo.DownloadUtil.ACTION_REENQUEUE;
 import static com.will.downloaddemo.DownloadUtil.ACTION_RESUME;
 import static com.will.downloaddemo.DownloadUtil.ACTION_START;
 import static com.will.downloaddemo.DownloadUtil.EXTRA_ERROR_MSG;
@@ -71,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(ACTION_NEW_TASK_ADD);
         filter.addAction(ACTION_START);
         filter.addAction(ACTION_RESUME);
+        filter.addAction(ACTION_REENQUEUE);
 
         LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
             @Override

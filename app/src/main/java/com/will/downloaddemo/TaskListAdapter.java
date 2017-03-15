@@ -20,6 +20,7 @@ import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
 import static com.will.downloaddemo.DownloadUtil.STATE_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
 import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
+import static com.will.downloaddemo.DownloadUtil.STATE_WAITING;
 
 /**
  * Created by Will on 2017/3/14.
@@ -54,11 +55,16 @@ public class TaskListAdapter extends RecyclerView.Adapter<TaskListAdapter.TaskVi
                 holder.tvProgress.setText("已暂停");
                 break;
             case STATE_INITIAL:
-                holder.btnState.setText("未开始");
-                holder.tvProgress.setText("等待");
+                holder.btnState.setText("等待开始");
+                holder.tvProgress.setText("未开始");
                 break;
             case STATE_FINISHED:
                 holder.btnState.setText("完成");
+                holder.tvProgress.setText("100%");
+                break;
+            case STATE_WAITING:
+                holder.btnState.setText("等待开始");
+                holder.tvProgress.setText("已暂停");
                 break;
         }
 
