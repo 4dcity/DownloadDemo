@@ -19,11 +19,13 @@ public class DownloadRecord {
     @Expose private int fileLength;
     @Expose private int completedSubTask;
     @Expose private List<SubTask> subTaskList;
+    @Expose private long createTime;
 
     DownloadRecord(DownloadRequest request) {
         this.request = request;
         subTaskList = new ArrayList<>();
         downloadState = STATE_INITIAL;
+        createTime = System.currentTimeMillis();
     }
 
     public int getCurrentLength() {
@@ -42,12 +44,12 @@ public class DownloadRecord {
         return request.getDownloadUrl();
     }
 
-    public String getSaveDir() {
-        return request.getSaveDir();
+    public String getDownloadDir() {
+        return request.getDownloadDir();
     }
 
-    public String getSaveName() {
-        return request.getSaveName();
+    public String getDownloadName() {
+        return request.getDownloadName();
     }
 
     public List<SubTask> getSubTaskList() {
@@ -56,6 +58,10 @@ public class DownloadRecord {
 
     public int getDownloadState() {
         return downloadState;
+    }
+
+    public long getCreateTime() {
+        return createTime;
     }
 
     void setDownloadState(int downloadState) {
@@ -75,7 +81,7 @@ public class DownloadRecord {
     }
 
     public String getFilePath() {
-        return getSaveDir() + "/" + getSaveName();
+        return getDownloadDir() + "/" + getDownloadName();
     }
 
     public String getId() {
@@ -91,6 +97,12 @@ public class DownloadRecord {
         fileLength = 0;
         completedSubTask = 0;
         subTaskList.clear();
+    }
+
+    void linkSubTask(){
+        for (SubTask subTask : subTaskList) {
+            subTask.setRecord(this);
+        }
     }
 
 }

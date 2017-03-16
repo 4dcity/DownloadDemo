@@ -20,7 +20,7 @@ import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
 import static com.will.downloaddemo.DownloadUtil.STATE_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
 import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
-import static com.will.downloaddemo.DownloadUtil.STATE_WAITING;
+import static com.will.downloaddemo.DownloadUtil.STATE_REENQUEUE;
 
 /**
  * Created by Will on 2017/3/14.
@@ -62,7 +62,7 @@ public class TaskListAdapter extends RecyclerView.Adapter<TaskListAdapter.TaskVi
                 holder.btnState.setText("打开");
                 holder.tvProgress.setText("已完成");
                 break;
-            case STATE_WAITING:
+            case STATE_REENQUEUE:
                 holder.btnState.setText("等待开始");
                 holder.tvProgress.setText("已暂停");
                 break;
@@ -81,7 +81,7 @@ public class TaskListAdapter extends RecyclerView.Adapter<TaskListAdapter.TaskVi
                 }
             }
         });
-        holder.tvTaskName.setText(record.getSaveName());
+        holder.tvTaskName.setText(record.getDownloadName());
         holder.progressBar.setProgress(record.getProgress());
     }
 

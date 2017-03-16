@@ -25,24 +25,26 @@ public class SubTask implements Runnable {
         this.endLocation = endLocation;
     }
 
+    void setRecord(DownloadRecord record) {
+        this.record = record;
+    }
+
     @Override
     public void run() {
         try {
             URL url = new URL(record.getDownloadUrl());
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            //在头里面请求下载开始位置和结束位置
             conn.setRequestProperty("Range", "bytes=" + startLocation + "-" + endLocation);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Charset", "UTF-8");
             conn.setConnectTimeout(TIME_OUT);
-            conn.setReadTimeout(10*1000);  //设置读取流的等待时间,必须设置该参数
+            conn.setReadTimeout(30*1000);
             is = conn.getInputStream();
-            //创建可设置位置的文件
             file = new RandomAccessFile(record.getFilePath(), "rwd");
-            //设置每条线程写入文件的位置
             file.seek(startLocation);
             byte[] buffer = new byte[4096];
             int len;
+
             while (record.getDownloadState() == STATE_DOWNLOADING
                     && (len = is.read(buffer)) != -1) {
                 file.write(buffer, 0, len);
@@ -59,6 +61,7 @@ public class SubTask implements Runnable {
         } catch (IOException exception) {
             DownloadUtil.get().downloadFailed(record,"subtask failed!");
         } finally {
+            DownloadUtil.get().saveRecord(record);
             try {
                 file.close();
                 is.close();

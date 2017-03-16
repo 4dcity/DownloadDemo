@@ -12,18 +12,18 @@ import static com.will.downloaddemo.DownloadUtil.getMD5;
 
 public class DownloadRequest{
 
-    @Expose private String downloadUrl;
-    @Expose private String saveDir;
-    @Expose private String saveName;
+    @Expose private final String downloadUrl;
+    @Expose private final String downloadDir;
+    @Expose private final String downloadName;
 
     private DownloadRequest(Builder builder) {
         downloadUrl = builder.downloadUrl;
-        saveDir = builder.saveDir;
-        saveName = builder.saveName;
+        downloadDir = builder.downloadDir;
+        downloadName = builder.downloadName;
     }
 
     public String getFilePath() {
-        return getSaveDir() + "/" + getSaveName();
+        return getDownloadDir() + "/" + getDownloadName();
     }
 
     public static Builder newBuilder() {
@@ -34,22 +34,22 @@ public class DownloadRequest{
         return downloadUrl;
     }
 
-    public String getSaveDir() {
-        return saveDir;
+    public String getDownloadDir() {
+        return downloadDir;
     }
 
-    public String getSaveName() {
-        return saveName;
+    public String getDownloadName() {
+        return downloadName;
     }
 
     public String getId(){
-        return getMD5(downloadUrl+saveDir+saveName);
+        return getMD5(downloadUrl+ downloadDir + downloadName);
     }
 
     public static final class Builder {
         private String downloadUrl;
-        private String saveDir = Environment.getExternalStorageDirectory().toString() + "/1";
-        private String saveName = "/" + System.currentTimeMillis();
+        private String downloadDir = Environment.getExternalStorageDirectory().toString() + "/1";
+        private String downloadName = "/" + System.currentTimeMillis();
         private DownloadListener listener;
 
         private Builder() {
@@ -60,13 +60,13 @@ public class DownloadRequest{
             return this;
         }
 
-        public Builder saveDir(String val) {
-            saveDir = val;
+        public Builder downloadDir(String val) {
+            downloadDir = val;
             return this;
         }
 
-        public Builder saveName(String val) {
-            saveName = val;
+        public Builder downloadName(String val) {
+            downloadName = val;
             return this;
         }
 

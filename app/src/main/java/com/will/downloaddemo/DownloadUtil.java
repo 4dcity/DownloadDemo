@@ -37,12 +37,12 @@ public class DownloadUtil {
     public static final String EXTRA_ERROR_MSG = BuildConfig.APPLICATION_ID + "extra_error_msg";
 
     final static ExecutorService TASK_EXECUTOR;
-    final static Map<String, DownloadRecord> sRecordMap;
-    static Semaphore sPermit;
+    final static Map<String, DownloadRecord> RECORD_MAP;
+    static Semaphore sDownloadPermit;
     static int sThreadNum;
 
     private static DownloadUtil instance;
-    private RequestDispatcher mRequestDispatcher;
+    private TaskDispatcher mTaskDispatcher;
     private LocalBroadcastManager mBroadcastManager;
     private DataHelper mDataHelper;
 
@@ -52,38 +52,47 @@ public class DownloadUtil {
     public static final int STATE_FINISHED = 3;
     public static final int STATE_CANCELED = 4;
     public static final int STATE_FAILED = 5;
-    public static final int STATE_WAITING = 6;
+    public static final int STATE_REENQUEUE = 6;
 
-    public final static int TIME_OUT = 5000;
-    public final static int MAX_CONCURRENT_TASK = 5;
-    public final static int DEFAULT_THREAD_NUMBER = 5;
+    final static int TIME_OUT = 5000;
+    final static int DEFAULT_TASK_AMOUNT = 3;
+    final static int DEFAULT_THREAD_AMOUNT = 5;
 
     private boolean initialized = false;
 
     static {
         TASK_EXECUTOR = Executors.newCachedThreadPool();
-        sRecordMap = new LinkedHashMap<>();
-        sPermit = new Semaphore(MAX_CONCURRENT_TASK);
-        sThreadNum = DEFAULT_THREAD_NUMBER;
+        RECORD_MAP = new LinkedHashMap<>();
     }
 
+    private BroadcastReceiver mReceiver;
+
     public DownloadUtil init(Context context) {
-        if(initialized) return instance;
+        if (initialized) return instance;
+        sDownloadPermit = new Semaphore(DEFAULT_TASK_AMOUNT);
         mBroadcastManager = LocalBroadcastManager.getInstance(context.getApplicationContext());
         mDataHelper = new DataHelper(context.getApplicationContext());
+        loadAll();
         initialized = true;
         return instance;
     }
 
-    public DownloadUtil setMaxConcurrentTask(int number){
-        if(initialized) return instance;
-        sPermit = new Semaphore(number);
+    /**
+     * 必须在init之前调用
+     *
+     * @param number
+     * @return
+     */
+    public DownloadUtil setMaxConcurrentTask(int number) {
+        if (initialized) return instance;
+        sDownloadPermit = new Semaphore(number);
         return instance;
     }
 
     private DownloadUtil() {
-        mRequestDispatcher = new RequestDispatcher();
-        mRequestDispatcher.start();
+        sThreadNum = DEFAULT_THREAD_AMOUNT;
+        mTaskDispatcher = new TaskDispatcher();
+        mTaskDispatcher.start();
     }
 
     public static DownloadUtil get() {
@@ -96,19 +105,66 @@ public class DownloadUtil {
         return instance;
     }
 
-    public void save(){
-        mDataHelper.saveAllRecord(sRecordMap.values());
+    public void destroy() {
+        mBroadcastManager.unregisterReceiver(mReceiver);
+        mTaskDispatcher.quit();
+        stopAllTask();
+        saveAll();
+        RECORD_MAP.clear();
+        TASK_EXECUTOR.shutdownNow();
+        sDownloadPermit = null;
+        initialized = false;
+        mDataHelper = null;
+        instance = null;
     }
 
-    public String enqueueRequest(DownloadRequest request) {
-        mRequestDispatcher.addRequest(request);
+    public void stopAllTask() {
+        for (DownloadRecord record : RECORD_MAP.values()) {
+            pause(record.getId());
+        }
+    }
+
+    synchronized void saveRecord(DownloadRecord record) {
+        mDataHelper.saveRecord(record);
+    }
+
+    public void saveAll() {
+        mDataHelper.saveAllRecord(RECORD_MAP.values());
+    }
+
+    public void loadAll() {
+        for (DownloadRecord record : mDataHelper.loadAllRecords()) {
+            RECORD_MAP.put(record.getId(), record);
+        }
+    }
+
+    public String enqueue(DownloadRequest request) {
+        if (!checkRequest(request)) {
+            return null;
+        }
+        DownloadRecord record = new DownloadRecord(request);
+        RECORD_MAP.put(request.getId(), record);
+        mTaskDispatcher.enqueueRecord(record);
+        DownloadUtil.get().newTaskAdd(record);
         return request.getId();
     }
 
+    private boolean checkRequest(DownloadRequest request) {
+        if (RECORD_MAP.get(request.getId()) != null) {
+            return false;
+        }
+        for (DownloadRecord record : RECORD_MAP.values()) {
+            if (record.getDownloadDir().equals(request.getDownloadDir())
+                    && record.getDownloadName().equals(request.getDownloadDir()))
+                return false;
+        }
+        return true;
+    }
+
     public boolean reEnqueue(String taskId) {
-        if (sRecordMap.get(taskId) != null) {
-            sRecordMap.get(taskId).setDownloadState(STATE_WAITING);
-            mRequestDispatcher.enqueueRecord(sRecordMap.get(taskId));
+        if (RECORD_MAP.get(taskId) != null) {
+            RECORD_MAP.get(taskId).setDownloadState(STATE_REENQUEUE);
+            mTaskDispatcher.enqueueRecord(RECORD_MAP.get(taskId));
             Intent intent = new Intent(ACTION_REENQUEUE);
             intent.putExtra(EXTRA_TASK_ID, taskId);
             mBroadcastManager.sendBroadcast(intent);
@@ -117,10 +173,24 @@ public class DownloadUtil {
         return false;
     }
 
+    /**
+     * 只针对 STATE_REENQUEUE 和 STATE_DOWNLOADING 的任务有效，
+     * 其他情况返回 false
+     * @param taskId
+     * @return
+     */
     public boolean pause(String taskId) {
-        if (sRecordMap.get(taskId) != null) {
-            sRecordMap.get(taskId).setDownloadState(STATE_PAUSED);
-            sPermit.release();
+        DownloadRecord record = RECORD_MAP.get(taskId);
+        if (record != null) {
+            if (record.getDownloadState() == STATE_INITIAL
+                    || record.getDownloadState() == STATE_PAUSED
+                    || record.getDownloadState() == STATE_CANCELED
+                    || record.getDownloadState() == STATE_FAILED
+                    || record.getDownloadState() == STATE_FINISHED)
+                return false;
+
+            RECORD_MAP.get(taskId).setDownloadState(STATE_PAUSED);
+            sDownloadPermit.release();
             Intent intent = new Intent(ACTION_PAUSED);
             intent.putExtra(EXTRA_TASK_ID, taskId);
             mBroadcastManager.sendBroadcast(intent);
@@ -130,9 +200,9 @@ public class DownloadUtil {
     }
 
     public boolean cancel(String taskId) {
-        if (sRecordMap.get(taskId) != null) {
-            sRecordMap.get(taskId).setDownloadState(STATE_CANCELED);
-            sPermit.release();
+        if (RECORD_MAP.get(taskId) != null) {
+            RECORD_MAP.get(taskId).setDownloadState(STATE_CANCELED);
+            sDownloadPermit.release();
             Intent intent = new Intent(ACTION_CANCELED);
             intent.putExtra(EXTRA_TASK_ID, taskId);
             mBroadcastManager.sendBroadcast(intent);
@@ -142,13 +212,13 @@ public class DownloadUtil {
     }
 
     public boolean resume(String taskId) {
-        if (sRecordMap.get(taskId) != null) {
-            DownloadRecord record = sRecordMap.get(taskId);
+        if (RECORD_MAP.get(taskId) != null) {
+            DownloadRecord record = RECORD_MAP.get(taskId);
             record.setDownloadState(STATE_DOWNLOADING);
             Intent intent = new Intent(ACTION_RESUME);
             intent.putExtra(EXTRA_TASK_ID, taskId);
             mBroadcastManager.sendBroadcast(intent);
-            for (int i = 0; i < sThreadNum; i++) {
+            for (int i = 0; i < record.getSubTaskList().size(); i++) {
                 TASK_EXECUTOR.execute(record.getSubTaskList().get(i));
             }
             return true;
@@ -163,8 +233,9 @@ public class DownloadUtil {
     }
 
     public void taskFinished(DownloadRecord record) {
-        sPermit.release();
+        sDownloadPermit.release();
         record.setDownloadState(STATE_FINISHED);
+        saveRecord(record);
         Intent intent = new Intent(ACTION_FINISHED);
         intent.putExtra(EXTRA_TASK_ID, record.getId());
         mBroadcastManager.sendBroadcast(intent);
@@ -177,8 +248,9 @@ public class DownloadUtil {
     }
 
     public void downloadFailed(DownloadRecord record, String errorMsg) {
-        sPermit.release();
+        sDownloadPermit.release();
         record.setDownloadState(STATE_FAILED);
+        saveRecord(record);
         Intent intent = new Intent(ACTION_FAILED);
         intent.putExtra(EXTRA_TASK_ID, record.getId());
         intent.putExtra(EXTRA_ERROR_MSG, errorMsg);
@@ -186,6 +258,7 @@ public class DownloadUtil {
     }
 
     public void newTaskAdd(DownloadRecord record) {
+        mDataHelper.saveRecord(record);
         Intent intent = new Intent(ACTION_NEW_TASK_ADD);
         intent.putExtra(EXTRA_TASK_ID, record.getId());
         mBroadcastManager.sendBroadcast(intent);
@@ -193,7 +266,7 @@ public class DownloadUtil {
 
     public static DownloadRecord parseRecord(Intent intent) {
         String taskId = intent.getStringExtra(EXTRA_TASK_ID);
-        return sRecordMap.get(taskId);
+        return RECORD_MAP.get(taskId);
     }
 
     void start(DownloadRecord record) {
@@ -206,7 +279,7 @@ public class DownloadUtil {
     }
 
     public void registerListener(Context context, final DownloadListener listener) {
-        if(listener == null)
+        if (listener == null)
             return;
 
         IntentFilter filter = new IntentFilter();
@@ -220,7 +293,7 @@ public class DownloadUtil {
         filter.addAction(ACTION_FINISHED);
         filter.addAction(ACTION_FAILED);
 
-        LocalBroadcastManager.getInstance(context).registerReceiver(new BroadcastReceiver() {
+        mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 DownloadRecord record = DownloadUtil.parseRecord(intent);
@@ -257,7 +330,8 @@ public class DownloadUtil {
                         break;
                 }
             }
-        }, filter);
+        };
+        LocalBroadcastManager.getInstance(context).registerReceiver(mReceiver, filter);
     }
 
     public static String getMD5(String string) {
