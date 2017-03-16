@@ -1,10 +1,7 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import static com.will.downloaddemo.DownloadUtil.STATE_REENQUEUE;
-import static com.will.downloaddemo.DownloadUtil.sDownloadPermit;
 
 /**
  * Created by Will on 2017/3/13.
@@ -27,8 +24,8 @@ public class TaskDispatcher extends Thread {
         while (!isInterrupted()) {
             try {
                 DownloadRecord record = mRecordQueue.take();
-                sDownloadPermit.acquire();
-                if (record.getDownloadState() == STATE_REENQUEUE) {
+                DownloadUtil.sDownloadPermit.acquire();
+                if (record.getDownloadState() == DownloadUtil.STATE_REENQUEUE) {
                     DownloadUtil.get().resume(record.getId());
                 } else {
                     DownloadUtil.get().start(record);

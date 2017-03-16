@@ -1,4 +1,4 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -9,6 +9,7 @@ import android.support.v4.content.LocalBroadcastManager;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -100,6 +101,10 @@ public class DownloadUtil {
             }
         }
         return instance;
+    }
+
+    public Collection<DownloadRecord> getAllTasks(){
+        return sRecordMap.values();
     }
 
     public void destroy() {

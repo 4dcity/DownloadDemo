@@ -9,6 +9,9 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.will.downloader.DownloadRecord;
+import com.will.downloader.DownloadUtil;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -16,12 +19,12 @@ import java.util.List;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
-import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
-import static com.will.downloaddemo.DownloadUtil.STATE_FAILED;
-import static com.will.downloaddemo.DownloadUtil.STATE_FINISHED;
-import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
-import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
-import static com.will.downloaddemo.DownloadUtil.STATE_REENQUEUE;
+import static com.will.downloader.DownloadUtil.STATE_DOWNLOADING;
+import static com.will.downloader.DownloadUtil.STATE_FAILED;
+import static com.will.downloader.DownloadUtil.STATE_FINISHED;
+import static com.will.downloader.DownloadUtil.STATE_INITIAL;
+import static com.will.downloader.DownloadUtil.STATE_PAUSED;
+import static com.will.downloader.DownloadUtil.STATE_REENQUEUE;
 
 /**
  * Created by Will on 2017/3/14.

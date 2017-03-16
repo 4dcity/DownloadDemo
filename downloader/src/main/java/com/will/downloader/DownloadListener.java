@@ -1,4 +1,4 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 interface DownloadListener{
 

@@ -11,11 +11,15 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.will.downloader.DownloadCallback;
+import com.will.downloader.DownloadRecord;
+import com.will.downloader.DownloadRequest;
+import com.will.downloader.DownloadUtil;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 
-import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -56,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
         DownloadUtil.get().init(this);
         edtUrl.setText(mDownloadUrl);
         adapter = new TaskListAdapter(this);
-        adapter.setData(sRecordMap.values());
+        adapter.setData(DownloadUtil.get().getAllTasks());
         rvTasks.setLayoutManager(new LinearLayoutManager(this));
         rvTasks.setAdapter(adapter);
         DownloadUtil.get().registerListener(this, new DownloadCallback() {
@@ -68,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onNewTaskAdd(DownloadRecord record) {
-                adapter.setData(sRecordMap.values());
+                adapter.setData(DownloadUtil.get().getAllTasks());
                 adapter.notifyDataSetChanged();
             }
 

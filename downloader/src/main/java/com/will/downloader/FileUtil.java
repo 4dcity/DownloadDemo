@@ -1,4 +1,4 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 /**
  * Created by Will on 2017/3/11.

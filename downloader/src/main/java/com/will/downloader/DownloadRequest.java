@@ -1,10 +1,8 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 import android.os.Environment;
 
 import com.google.gson.annotations.Expose;
-
-import static com.will.downloaddemo.DownloadUtil.getMD5;
 
 /**
  * Created by Will on 2017/3/13.
@@ -43,7 +41,7 @@ public class DownloadRequest{
     }
 
     public String getId(){
-        return getMD5(downloadUrl+ downloadDir + downloadName);
+        return DownloadUtil.getMD5(downloadUrl+ downloadDir + downloadName);
     }
 
     public static final class Builder {

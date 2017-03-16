@@ -1,18 +1,17 @@
-package com.will.downloaddemo;
+package com.will.downloader;
+
+import android.support.annotation.NonNull;
 
 import com.google.gson.annotations.Expose;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
-import static com.will.downloaddemo.DownloadUtil.sThreadNum;
-
 /**
  * Created by Will on 2017/3/13.
  */
 
-public class DownloadRecord {
+public class DownloadRecord implements Comparable<DownloadRecord>{
     @Expose private final DownloadRequest request;
     @Expose private volatile int downloadState;
     @Expose private int currentLength;
@@ -24,7 +23,7 @@ public class DownloadRecord {
     DownloadRecord(DownloadRequest request) {
         this.request = request;
         subTaskList = new ArrayList<>();
-        downloadState = STATE_INITIAL;
+        downloadState = DownloadUtil.STATE_INITIAL;
         createTime = System.currentTimeMillis();
     }
 
@@ -105,4 +104,10 @@ public class DownloadRecord {
         }
     }
 
+    @Override
+    public int compareTo(@NonNull DownloadRecord o) {
+        if(createTime < o.getCreateTime()) return -1;
+        if(createTime > o.getCreateTime()) return 1;
+        return 0;
+    }
 }

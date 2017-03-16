@@ -1,6 +1,4 @@
-package com.will.downloaddemo;
-
-import java.net.HttpURLConnection;
+package com.will.downloader;
 
 /**
  * Created by Will on 2017/3/12.

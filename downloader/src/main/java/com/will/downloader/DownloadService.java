@@ -1,4 +1,4 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 import android.app.Service;
 import android.content.Intent;
@@ -7,9 +7,6 @@ import android.os.IBinder;
 public class DownloadService extends Service {
 
     IBinder mBinder;
-
-    private DownloadService() {
-    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {

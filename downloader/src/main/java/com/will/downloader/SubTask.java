@@ -1,4 +1,4 @@
-package com.will.downloaddemo;
+package com.will.downloader;
 
 import com.google.gson.annotations.Expose;
 
@@ -7,9 +7,6 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
-
-import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
-import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
 public class SubTask implements Runnable {
     private DownloadRecord record;
@@ -39,7 +36,7 @@ public class SubTask implements Runnable {
             conn.setRequestProperty("Range", "bytes=" + startLocation + "-" + endLocation);
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Charset", "UTF-8");
-            conn.setConnectTimeout(TIME_OUT);
+            conn.setConnectTimeout(DownloadUtil.TIME_OUT);
             conn.setReadTimeout(30 * 1000);
             is = conn.getInputStream();
             file = new RandomAccessFile(record.getFilePath(), "rwd");
@@ -47,7 +44,7 @@ public class SubTask implements Runnable {
             byte[] buffer = new byte[4096];
             int len;
 
-            while (record.getDownloadState() == STATE_DOWNLOADING
+            while (record.getDownloadState() == DownloadUtil.STATE_DOWNLOADING
                     && (len = is.read(buffer)) != -1) {
                 file.write(buffer, 0, len);
                 startLocation += len;
@@ -55,7 +52,7 @@ public class SubTask implements Runnable {
                 DownloadUtil.get().progressUpdated(record);
             }
 
-            if (record.getDownloadState() == STATE_DOWNLOADING) {
+            if (record.getDownloadState() == DownloadUtil.STATE_DOWNLOADING) {
                 if (record.completeSubTask()) {
                     DownloadUtil.get().taskFinished(record);
                 }
