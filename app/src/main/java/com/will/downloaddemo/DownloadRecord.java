@@ -70,7 +70,7 @@ public class DownloadRecord {
 
     synchronized boolean completeSubTask(){
         completedSubTask++;
-        if(completedSubTask == sThreadNum){
+        if(completedSubTask == subTaskList.size()){
             return true;
         }
         return false;

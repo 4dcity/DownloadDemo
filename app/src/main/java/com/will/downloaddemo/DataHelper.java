@@ -2,6 +2,7 @@ package com.will.downloaddemo;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -33,14 +34,19 @@ class DataHelper {
     }
 
     void saveRecord(DownloadRecord record){
-        String json = gson.toJson(record);
+        String json;
+        synchronized (record) {
+            json = gson.toJson(record);
+        }
         sp.edit().putString(record.getId(), json).apply();
+        Log.e("DataHelper", json);
     }
 
     List<DownloadRecord> loadAllRecords(){
         Map<String, String> map = (Map<String, String>) sp.getAll();
         List<DownloadRecord> list = new ArrayList<>();
         for (String json: map.values()) {
+            Log.e("DataHelper", json);
             DownloadRecord record = gson.fromJson(json, DownloadRecord.class);
             record.linkSubTask();
             list.add(record);

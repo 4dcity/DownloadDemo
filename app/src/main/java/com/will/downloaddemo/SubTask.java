@@ -13,8 +13,10 @@ import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
 public class SubTask implements Runnable {
     private DownloadRecord record;
-    @Expose private int startLocation;
-    @Expose private int endLocation;
+    @Expose
+    private int startLocation;
+    @Expose
+    private int endLocation;
 
     private InputStream is;
     private RandomAccessFile file;
@@ -38,7 +40,7 @@ public class SubTask implements Runnable {
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Charset", "UTF-8");
             conn.setConnectTimeout(TIME_OUT);
-            conn.setReadTimeout(30*1000);
+            conn.setReadTimeout(30 * 1000);
             is = conn.getInputStream();
             file = new RandomAccessFile(record.getFilePath(), "rwd");
             file.seek(startLocation);
@@ -59,10 +61,10 @@ public class SubTask implements Runnable {
                 }
             }
         } catch (IOException exception) {
-            DownloadUtil.get().downloadFailed(record,"subtask failed!");
+            DownloadUtil.get().downloadFailed(record, "subtask failed!");
         } finally {
-            DownloadUtil.get().saveRecord(record);
             try {
+                DownloadUtil.get().saveRecord(record);
                 file.close();
                 is.close();
             } catch (IOException | NullPointerException e) {

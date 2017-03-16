@@ -15,7 +15,7 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 
-import static com.will.downloaddemo.DownloadUtil.RECORD_MAP;
+import static com.will.downloaddemo.DownloadUtil.sRecordMap;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
         DownloadUtil.get().init(this);
         edtUrl.setText(mDownloadUrl);
         adapter = new TaskListAdapter(this);
-        adapter.setData(RECORD_MAP.values());
+        adapter.setData(sRecordMap.values());
         rvTasks.setLayoutManager(new LinearLayoutManager(this));
         rvTasks.setAdapter(adapter);
         DownloadUtil.get().registerListener(this, new DownloadCallback() {
@@ -68,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onNewTaskAdd(DownloadRecord record) {
-                adapter.setData(RECORD_MAP.values());
+                adapter.setData(sRecordMap.values());
                 adapter.notifyDataSetChanged();
             }
 
@@ -126,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
 //                        adapter.notifyItemChanged(index, "payload");
 //                        break;
 //                    case ACTION_NEW_TASK_ADD:
-//                        adapter.setData(RECORD_MAP.values());
+//                        adapter.setData(sRecordMap.values());
 //                        adapter.notifyDataSetChanged();
 //                        break;
 //                    case ACTION_FAILED:

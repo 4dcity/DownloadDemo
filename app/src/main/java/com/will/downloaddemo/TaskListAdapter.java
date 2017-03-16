@@ -17,6 +17,7 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 
 import static com.will.downloaddemo.DownloadUtil.STATE_DOWNLOADING;
+import static com.will.downloaddemo.DownloadUtil.STATE_FAILED;
 import static com.will.downloaddemo.DownloadUtil.STATE_FINISHED;
 import static com.will.downloaddemo.DownloadUtil.STATE_INITIAL;
 import static com.will.downloaddemo.DownloadUtil.STATE_PAUSED;
@@ -65,6 +66,10 @@ public class TaskListAdapter extends RecyclerView.Adapter<TaskListAdapter.TaskVi
             case STATE_REENQUEUE:
                 holder.btnState.setText("等待开始");
                 holder.tvProgress.setText("已暂停");
+                break;
+            case STATE_FAILED:
+                holder.btnState.setText("重试");
+                holder.tvProgress.setText("下载失败");
                 break;
         }
 

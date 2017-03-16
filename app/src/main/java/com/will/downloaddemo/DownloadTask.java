@@ -7,7 +7,7 @@ import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import static com.will.downloaddemo.DownloadUtil.TASK_EXECUTOR;
+import static com.will.downloaddemo.DownloadUtil.sExecutor;
 import static com.will.downloaddemo.DownloadUtil.sThreadNum;
 import static com.will.downloaddemo.DownloadUtil.TIME_OUT;
 
@@ -51,8 +51,9 @@ public class DownloadTask extends AsyncTask<DownloadRecord, Integer, DownloadRec
                     endL = record.getFileLength();
                 SubTask subTask = new SubTask(record, startL, endL);
                 record.getSubTaskList().add(subTask);
-                TASK_EXECUTOR.execute(subTask);
+                sExecutor.execute(subTask);
             }
+            DownloadUtil.get().saveRecord(record);
         }
     }
 }
