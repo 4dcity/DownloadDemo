@@ -13,7 +13,7 @@ import java.util.List;
 
 public class DownloadRecord implements Comparable<DownloadRecord>{
     @Expose private final DownloadRequest request;
-    @Expose private volatile int downloadState;
+    @Expose private int downloadState;
     @Expose private int currentLength;
     @Expose private int fileLength;
     @Expose private int completedSubTask;
@@ -27,7 +27,7 @@ public class DownloadRecord implements Comparable<DownloadRecord>{
         createTime = System.currentTimeMillis();
     }
 
-    public int getCurrentLength() {
+    synchronized public int getCurrentLength() {
         return currentLength;
     }
 
@@ -55,7 +55,7 @@ public class DownloadRecord implements Comparable<DownloadRecord>{
         return subTaskList;
     }
 
-    public int getDownloadState() {
+    synchronized public int getDownloadState() {
         return downloadState;
     }
 
@@ -63,7 +63,7 @@ public class DownloadRecord implements Comparable<DownloadRecord>{
         return createTime;
     }
 
-    void setDownloadState(int downloadState) {
+    synchronized void setDownloadState(int downloadState) {
         this.downloadState = downloadState;
     }
 
@@ -91,10 +91,11 @@ public class DownloadRecord implements Comparable<DownloadRecord>{
         return Math.round(getCurrentLength() / (getFileLength() * 1.0f) * 100);
     }
 
-    void reset(){
+    synchronized void reset(){
         currentLength = 0;
         fileLength = 0;
         completedSubTask = 0;
+        downloadState = DownloadUtil.STATE_INITIAL;
         subTaskList.clear();
     }
 

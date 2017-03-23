@@ -140,6 +140,11 @@ public class DownloadUtil {
         }
     }
 
+    /**
+     * 发起一个下载请求，发起成功会返回对应下载任务的id
+     * @param request
+     * @return
+     */
     public String enqueue(DownloadRequest request) {
         if (!checkRequest(request)) {
             return null;
@@ -179,7 +184,7 @@ public class DownloadUtil {
      * 只针对 STATE_REENQUEUE 和 STATE_DOWNLOADING 的任务有效，
      * 其他情况返回 false
      * @param taskId
-     * @return
+     * @return 如果没有找到对应的任务或任务状态不合法，就返回 false
      */
     public boolean pause(String taskId) {
         DownloadRecord record = sRecordMap.get(taskId);
@@ -213,6 +218,11 @@ public class DownloadUtil {
         return false;
     }
 
+    /**
+     * 恢复一个暂停的任务
+     * @param taskId
+     * @return 如果没有找到对应的任务就返回 false
+     */
     public boolean resume(String taskId) {
         if (sRecordMap.get(taskId) != null) {
             DownloadRecord record = sRecordMap.get(taskId);

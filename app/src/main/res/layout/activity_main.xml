@@ -1,53 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="8dp"
     tools:context="com.will.downloaddemo.MainActivity">
-
-    <EditText
-        android:id="@+id/edtUrl"
-        android:layout_width="0dp"
-        android:layout_height="41dp"
-        android:ems="10"
-        android:hint="input url"
-        android:inputType="textPersonName"
-        app:layout_constraintRight_toLeftOf="@+id/btnAdd"
-        android:layout_marginRight="8dp"
-        app:layout_constraintTop_toTopOf="@+id/btnAdd"
-        android:layout_marginTop="0dp"
-        android:layout_marginLeft="8dp"
-        app:layout_constraintLeft_toLeftOf="@+id/rvTasks" />
 
     <Button
         android:id="@+id/btnAdd"
-        android:layout_width="42dp"
-        android:layout_height="45dp"
-        android:layout_marginStart="18dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="5dp"
         android:text="+"
-        android:textSize="18sp"
-        android:layout_marginRight="16dp"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="0dp" />
+        android:textSize="18sp" />
+
+    <EditText
+        android:id="@+id/edtUrl"
+        android:layout_width="match_parent"
+        android:layout_height="47dp"
+        android:layout_margin="8dp"
+        android:layout_marginRight="8dp"
+        android:layout_toLeftOf="@id/btnAdd"
+        android:ems="10"
+        android:hint="input url"
+        android:inputType="textPersonName" />
 
     <android.support.v7.widget.RecyclerView
         android:id="@+id/rvTasks"
-        android:layout_width="0dp"
-        android:layout_height="421dp"
-        android:layout_marginBottom="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginRight="0dp"
-        android:layout_marginStart="9dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edtUrl"
-        app:layout_constraintVertical_bias="0.0"
-        android:layout_marginLeft="0dp"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintHorizontal_bias="0.357" />
-</android.support.constraint.ConstraintLayout>
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/edtUrl"
+        android:layout_marginTop="8dp" />
+</RelativeLayout>
